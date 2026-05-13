@@ -3,7 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import { AppConfig, DEFAULT_CONFIG, APP_CONFIG_VERSION } from "@/types/workspace";
 
-const APP_DIR = path.join(os.homedir(), ".boussole");
+const APP_DIR = path.join(os.homedir(), ".myjobhub");
 const CONFIG_PATH = path.join(APP_DIR, "config.json");
 
 async function ensureAppDir(): Promise<void> {

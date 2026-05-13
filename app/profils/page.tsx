@@ -106,7 +106,7 @@ function DeleteProfileDialog({
         toast.error(json.error ?? "Suppression impossible");
         return;
       }
-      toast.success(removeFiles ? "Profil et fichiers supprimés" : "Profil retiré de Boussole (fichiers conservés)");
+      toast.success(removeFiles ? "Profil et fichiers supprimés" : "Profil retiré de MyJobHub (fichiers conservés)");
       setOpen(false);
       await onDeleted();
     } catch (err) {
@@ -127,7 +127,7 @@ function DeleteProfileDialog({
             <AlertTriangle className="h-5 w-5 text-amber-500" /> Supprimer le profil ?
           </DialogTitle>
           <DialogDescription>
-            Tu vas retirer <strong>{workspaceName}</strong> de Boussole. Par défaut, ton dossier reste sur le disque.
+            Tu vas retirer <strong>{workspaceName}</strong> de MyJobHub. Par défaut, ton dossier reste sur le disque.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
@@ -148,7 +148,7 @@ function DeleteProfileDialog({
           </Button>
           <Button variant={removeFiles ? "destructive" : "default"} onClick={submit} disabled={running}>
             {running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {removeFiles ? "Supprimer définitivement" : "Retirer de Boussole"}
+            {removeFiles ? "Supprimer définitivement" : "Retirer de MyJobHub"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -4,12 +4,12 @@ import path from "node:path";
 import yaml from "yaml";
 import { Workspace } from "@/types/workspace";
 import { getCareerOpsPath } from "@/lib/workspace";
-import { BoussoleFeedback, FeedbackEntry, PipelineEntry, RejectionReason } from "@/lib/triage-types";
+import { MyJobHubFeedback, FeedbackEntry, PipelineEntry, RejectionReason } from "@/lib/triage-types";
 
-export type { BoussoleFeedback, FeedbackEntry, PipelineEntry, RejectionReason };
+export type { MyJobHubFeedback, FeedbackEntry, PipelineEntry, RejectionReason };
 export { REJECTION_REASONS } from "@/lib/triage-types";
 
-const FEEDBACK_FILENAME = "boussole-feedback.yml";
+const FEEDBACK_FILENAME = "myjobhub-feedback.yml";
 
 function pipelinePath(ws: Workspace) {
   return path.join(getCareerOpsPath(ws), "data", "pipeline.md");
@@ -90,10 +90,10 @@ export async function appendPendingUrl(ws: Workspace, url: string): Promise<void
   await fs.writeFile(filePath, raw, "utf-8");
 }
 
-export async function readFeedback(ws: Workspace): Promise<BoussoleFeedback> {
+export async function readFeedback(ws: Workspace): Promise<MyJobHubFeedback> {
   try {
     const raw = await fs.readFile(feedbackPath(ws), "utf-8");
-    const parsed = (yaml.parse(raw) ?? {}) as Partial<BoussoleFeedback>;
+    const parsed = (yaml.parse(raw) ?? {}) as Partial<MyJobHubFeedback>;
     return {
       rejections: parsed.rejections ?? [],
       approvals: parsed.approvals ?? [],
@@ -106,7 +106,7 @@ export async function readFeedback(ws: Workspace): Promise<BoussoleFeedback> {
   }
 }
 
-export async function writeFeedback(ws: Workspace, feedback: BoussoleFeedback): Promise<void> {
+export async function writeFeedback(ws: Workspace, feedback: MyJobHubFeedback): Promise<void> {
   const filePath = feedbackPath(ws);
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   await fs.writeFile(filePath, yaml.stringify(feedback, { lineWidth: 120 }), "utf-8");

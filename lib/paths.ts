@@ -13,5 +13,5 @@ export function expandHome(input: string): string {
 }
 
 export function defaultWorkspacesParent(): string {
-  return path.join(os.homedir(), "Documents", "Boussole");
+  return path.join(os.homedir(), "Documents", "MyJobHub");
 }

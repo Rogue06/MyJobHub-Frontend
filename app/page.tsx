@@ -45,7 +45,7 @@ export default function DashboardPage() {
       {!activeWorkspace ? (
         <EmptyState
           icon={Compass}
-          title="Bienvenue sur Boussole"
+          title="Bienvenue sur MyJobHub"
           description={
             config.workspaces.length === 0
               ? "Crée ton premier profil de recherche pour commencer. Tu pourras importer ton CV en PDF, on s'occupe du reste."

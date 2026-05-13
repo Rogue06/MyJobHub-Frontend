@@ -35,7 +35,7 @@ export interface FeedbackEntry {
   note?: string;
 }
 
-export interface BoussoleFeedback {
+export interface MyJobHubFeedback {
   rejections: FeedbackEntry[];
   approvals: { id: string; createdAt: string; url: string; title?: string }[];
 }

@@ -109,7 +109,7 @@ export function Sidebar() {
     <aside className="hidden w-[260px] shrink-0 flex-col border-r bg-sidebar md:flex">
       <div className="flex h-14 items-center gap-2 border-b px-4">
         <Compass className="h-5 w-5 text-primary" />
-        <span className="text-base font-semibold tracking-tight">Boussole</span>
+        <span className="text-base font-semibold tracking-tight">MyJobHub</span>
       </div>
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         <div className="space-y-1">{PRIMARY.map(renderItem)}</div>

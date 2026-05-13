@@ -48,7 +48,7 @@ export function Step1Name({ draft, setDraft, onNext }: Props) {
           <Label htmlFor="parent-dir">Dossier parent</Label>
           <Input
             id="parent-dir"
-            placeholder="/Users/.../Documents/Boussole"
+            placeholder="/Users/.../Documents/MyJobHub"
             value={draft.parentDir}
             onChange={(e) => setDraft((d) => ({ ...d, parentDir: e.target.value }))}
             className="font-mono text-xs"

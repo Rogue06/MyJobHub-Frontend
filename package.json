@@ -1,8 +1,8 @@
 {
-  "name": "boussole",
+  "name": "myjobhub",
   "version": "0.1.0",
   "private": true,
-  "description": "Interface graphique en français pour career-ops (recherche d'emploi assistée par IA)",
+  "description": "MyJobHub — interface graphique en français pour career-ops (recherche d'emploi assistée par IA)",
   "license": "MIT",
   "scripts": {
     "dev": "next dev",

@@ -40,7 +40,7 @@ export function getInitialDraft(defaultParentDir: string): WizardDraft {
   };
 }
 
-export const DRAFT_STORAGE_KEY = "boussole-wizard-draft-v1";
+export const DRAFT_STORAGE_KEY = "myjobhub-wizard-draft-v1";
 
 export function loadDraft(defaultParentDir: string): WizardDraft {
   if (typeof window === "undefined") return getInitialDraft(defaultParentDir);

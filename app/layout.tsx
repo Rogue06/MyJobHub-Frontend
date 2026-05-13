@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Boussole — Recherche d'emploi assistée",
+  title: "MyJobHub — Recherche d'emploi assistée",
   description:
     "Interface graphique en français pour piloter career-ops : évaluation d'offres, génération de CV/LM, suivi des candidatures.",
 };

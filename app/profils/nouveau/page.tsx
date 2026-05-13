@@ -21,9 +21,9 @@ export default function NouveauProfilPage() {
   const [defaultParent] = React.useState(() => {
     if (typeof window !== "undefined") {
       const guess = "/Users/" + ((window.navigator.userAgent.match(/Mac/) ? "" : "") + "");
-      return guess.length > 7 ? guess : "~/Documents/Boussole";
+      return guess.length > 7 ? guess : "~/Documents/MyJobHub";
     }
-    return "~/Documents/Boussole";
+    return "~/Documents/MyJobHub";
   });
 
   const [draft, setDraft] = React.useState<WizardDraft>(() => getInitialDraft(defaultParent));

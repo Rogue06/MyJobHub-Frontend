@@ -43,5 +43,5 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Local Boussole runtime (should never be committed)
-.boussole-cache/
+# Local MyJobHub runtime (should never be committed)
+.myjobhub-cache/

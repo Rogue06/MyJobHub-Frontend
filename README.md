@@ -1,36 +1,122 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Boussole
 
-## Getting Started
+Interface graphique en français pour [career-ops](https://github.com/santifer/career-ops), l'outil open-source de recherche d'emploi assistée par IA.
 
-First, run the development server:
+Boussole rend career-ops accessible sans terminal : un assistant guidé importe ton CV PDF et configure tout, des éditeurs visuels remplacent les fichiers YAML, et un système de triage avec filtre apprenant t'aide à affiner ce que l'IA cherche pour toi.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Pourquoi Boussole
+
+career-ops est puissant mais demande de connaître Claude Code CLI, d'éditer des YAML à la main et de mémoriser une quinzaine de slash commands. Boussole apporte une interface web simple, en français, qui :
+
+- Guide la création d'un profil pas à pas avec import direct d'un CV PDF
+- Remplace les fichiers `cv.md`, `config/profile.yml`, `portals.yml` par des formulaires lisibles
+- Supporte plusieurs profils en parallèle (ex. recherche d'emploi + recherche d'alternance) dans des dossiers indépendants
+- Pré-charge une trentaine de sites d'annonces français, tous activables/désactivables
+- Lance une évaluation d'offre depuis un copier-coller d'URL avec affichage temps réel
+- Affiche tes candidatures (depuis `data/applications.md`) avec statistiques
+- Permet un **triage des annonces** avec apprentissage : tu marques ce que tu rejettes et Claude propose automatiquement des règles de filtrage à ajouter à `portals.yml`
+- Liste les CV et lettres de motivation générés, avec bouton « ouvrir » et « révéler dans le Finder »
+
+## Architecture
+
+```
+~/.boussole/config.json                  Configuration globale Boussole (liste des profils)
+
+<dossier-utilisateur>/<profil>/          Workspace d'un profil
+└── career-ops/                          Clone autonome de career-ops
+    ├── cv.md                            Données utilisateur
+    ├── config/profile.yml               Données utilisateur
+    ├── portals.yml                      Données utilisateur
+    ├── data/                            Tracker, pipeline, feedback Boussole
+    ├── reports/, output/                Sorties générées
+    └── modes/, *.mjs, dashboard/…       Sources de career-ops (jamais modifiées)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Chaque profil contient un clone complet et autonome de career-ops. Boussole n'écrit jamais dans les fichiers du système career-ops — uniquement dans tes données. Tu peux toujours `cd <workspace>/career-ops && claude` directement pour utiliser career-ops sans Boussole.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Prérequis
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Node.js 22 LTS** (un `.nvmrc` est inclus)
+- **Git** (pour cloner career-ops dans chaque profil)
+- **Claude Code CLI** installé et authentifié (`claude --version` doit fonctionner)
+- macOS, Windows ou Linux
 
-## Learn More
+## Installation
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+git clone https://github.com/<ton-user>/boussole.git
+cd boussole
+nvm use            # active Node 22 via .nvmrc
+npm install
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+L'app tourne sur [http://localhost:3000](http://localhost:3000).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Premier profil
 
-## Deploy on Vercel
+1. Ouvre [http://localhost:3000](http://localhost:3000)
+2. Clique sur « Créer un profil »
+3. Donne-lui un nom (ex. *Emploi banque*) et choisis un dossier parent
+4. Glisse ton CV PDF — l'IA en extrait le texte et structure automatiquement `cv.md` et `profile.yml`
+5. Vérifie le résultat, ajuste tes préférences (contrat, domaines, salaire, mobilité)
+6. Coche les sites d'annonces à scanner
+7. Lance l'installation : Boussole clone career-ops, installe les dépendances et configure tout
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Compter **2 à 4 minutes** la première fois (clone + `npm install` + `playwright install`).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Mettre à jour career-ops
+
+Dans la page **Configuration**, le bouton « Mettre à jour career-ops » exécute :
+
+```bash
+git pull --rebase --autostash    # tes fichiers locaux sont préservés
+npm install
+npm run doctor
+```
+
+Si tu utilises ton propre fork plutôt que `santifer/career-ops`, ajoute le remote upstream une fois :
+
+```bash
+cd <workspace>/career-ops
+git remote add upstream https://github.com/santifer/career-ops.git
+git fetch upstream
+git merge upstream/main
+```
+
+## Modules
+
+| Module | Description |
+|--------|-------------|
+| **Tableau de bord** | Vue d'ensemble du profil actif et accès rapide aux actions |
+| **Évaluer une offre** | Colle une URL ou un texte d'annonce ; Claude évalue, génère CV adapté et rapport |
+| **Triage des annonces** | Marque ce que tu gardes ou rejettes ; Claude apprend de tes rejets et propose des règles de filtre |
+| **Candidatures** | Tracker visuel de `data/applications.md` avec stats et filtres |
+| **Documents** | Galerie des PDF (CV adaptés, lettres de motivation, rapports) |
+| **Configuration** | Éditeurs visuels du profil, des préférences, des sources et du CV |
+| **Profils** | Gestion multi-profils (création, activation, suppression) |
+
+## Stack technique
+
+- **Next.js 14** (App Router) + TypeScript
+- **Tailwind CSS 3** + **shadcn/ui** (sur Base UI)
+- **pdf-parse** v2 pour l'extraction de texte
+- **yaml** pour la lecture/écriture des fichiers YAML
+- **sonner** pour les notifications
+- Server-Sent Events pour le streaming en direct des commandes longues (`git clone`, `npm install`, `claude -p …`)
+
+## Dissociation avec career-ops
+
+Boussole est un projet indépendant qui appelle career-ops via :
+
+1. Le CLI de Claude Code (`claude -p "/career-ops …"`)
+2. Les scripts npm de career-ops (`npm run scan`, `npm run pdf`, etc.)
+3. Lecture/écriture de fichiers user-data uniquement (`cv.md`, `config/profile.yml`, `portals.yml`, `data/*`)
+
+Boussole ne fork pas career-ops, ne modifie pas ses sources, ne le redistribue pas. Le clone effectué dans chaque profil pointe sur `https://github.com/santifer/career-ops` ou un fork de ton choix.
+
+## Licence
+
+MIT — voir [LICENSE](LICENSE).
+
+career-ops est lui-même sous MIT, par [Santiago Fernández](https://santifer.io). Boussole respecte la [TRADEMARK Policy](https://github.com/santifer/career-ops/blob/main/TRADEMARK.md) de career-ops en n'utilisant pas le nom dans son identité de projet.

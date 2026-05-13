@@ -2,11 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Users, Plus, Folder, Trash2, AlertTriangle, Loader2 } from "lucide-react";
+import { Users, Plus, Folder, Trash2, AlertTriangle, Loader2, FolderInput } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/layout/page-shell";
 import { EmptyState } from "@/components/empty-state";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -19,6 +20,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useWorkspace } from "@/components/providers/workspace-provider";
+import { ImportProfileDialog } from "./_components/import-dialog";
 import { cn } from "@/lib/utils";
 
 export default function ProfilsPage() {
@@ -29,20 +31,27 @@ export default function ProfilsPage() {
       title="Mes profils"
       description="Chaque profil correspond à une recherche d'emploi distincte (ex. emploi banque, alternance…)"
       actions={
-        <Link href="/profils/nouveau" className={cn(buttonVariants(), "gap-2")}>
-          <Plus className="h-4 w-4" /> Nouveau profil
-        </Link>
+        <>
+          <ImportProfileDialog />
+          <Link href="/profils/nouveau" className={cn(buttonVariants(), "gap-2")}>
+            <Plus className="h-4 w-4" /> Nouveau profil
+          </Link>
+        </>
       }
     >
       {config.workspaces.length === 0 ? (
         <EmptyState
           icon={Users}
           title="Aucun profil pour le moment"
-          description="Crée ton premier profil. Tu pourras importer ton CV PDF et on remplit automatiquement les infos de base."
+          description="Crée un nouveau profil avec le wizard, ou importe un dossier career-ops que tu as déjà configuré."
           action={
-            <Link href="/profils/nouveau" className={cn(buttonVariants(), "gap-2")}>
-              <Plus className="h-4 w-4" /> Créer un profil
-            </Link>
+            <div className="flex flex-col items-center gap-3 sm:flex-row">
+              <Link href="/profils/nouveau" className={cn(buttonVariants(), "gap-2")}>
+                <Plus className="h-4 w-4" /> Créer un profil
+              </Link>
+              <span className="text-xs text-muted-foreground">ou</span>
+              <ImportProfileDialog />
+            </div>
           }
         />
       ) : (
@@ -50,13 +59,23 @@ export default function ProfilsPage() {
           {config.workspaces.map((w) => (
             <Card key={w.id} className={w.id === activeWorkspace?.id ? "border-primary" : ""}>
               <CardHeader>
-                <CardTitle className="text-base">{w.name}</CardTitle>
+                <div className="flex items-start justify-between gap-2">
+                  <CardTitle className="text-base">{w.name}</CardTitle>
+                  {w.imported ? (
+                    <Badge variant="secondary" className="gap-1 text-[10px]">
+                      <FolderInput className="h-3 w-3" /> Importé
+                    </Badge>
+                  ) : null}
+                </div>
                 <CardDescription className="flex items-center gap-1.5 font-mono text-xs">
                   <Folder className="h-3 w-3" />
                   {w.path}
+                  {w.careerOpsRelPath && w.careerOpsRelPath !== "career-ops" ? (
+                    <span className="text-muted-foreground">/{w.careerOpsRelPath}</span>
+                  ) : null}
                 </CardDescription>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Créé le {new Date(w.createdAt).toLocaleDateString("fr-FR")}
+                  {w.imported ? "Importé" : "Créé"} le {new Date(w.createdAt).toLocaleDateString("fr-FR")}
                 </p>
               </CardHeader>
               <CardContent className="flex gap-2">

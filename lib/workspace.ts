@@ -21,8 +21,30 @@ export async function pathExists(p: string): Promise<boolean> {
   }
 }
 
-export async function checkWorkspace(workspacePath: string): Promise<WorkspaceCheck> {
-  const careerOpsPath = path.join(workspacePath, "career-ops");
+export async function isCareerOpsClone(dirPath: string): Promise<boolean> {
+  const [hasModes, hasPackage] = await Promise.all([
+    pathExists(path.join(dirPath, "modes")),
+    pathExists(path.join(dirPath, "package.json")),
+  ]);
+  return hasModes && hasPackage;
+}
+
+export async function detectCareerOpsRelPath(workspacePath: string): Promise<string | null> {
+  if (await isCareerOpsClone(workspacePath)) return ".";
+  if (await isCareerOpsClone(path.join(workspacePath, "career-ops"))) return "career-ops";
+  return null;
+}
+
+export async function resolveCareerOpsPath(workspace: Workspace): Promise<string> {
+  return getCareerOpsPath(workspace);
+}
+
+export async function checkWorkspace(
+  workspacePath: string,
+  careerOpsRelPath?: string
+): Promise<WorkspaceCheck> {
+  const rel = careerOpsRelPath ?? "career-ops";
+  const careerOpsPath = rel === "." || rel === "" ? workspacePath : path.join(workspacePath, rel);
 
   const hasCareerOps = await pathExists(careerOpsPath);
   if (!hasCareerOps) {
@@ -75,7 +97,9 @@ export async function checkWorkspace(workspacePath: string): Promise<WorkspaceCh
 }
 
 export function getCareerOpsPath(workspace: Workspace): string {
-  return path.join(workspace.path, "career-ops");
+  const rel = workspace.careerOpsRelPath ?? "career-ops";
+  if (rel === "." || rel === "") return workspace.path;
+  return path.join(workspace.path, rel);
 }
 
 export function getWorkspaceFile(workspace: Workspace, relativePath: string): string {

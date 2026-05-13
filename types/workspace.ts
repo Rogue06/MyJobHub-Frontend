@@ -4,6 +4,14 @@ export interface Workspace {
   id: string;
   name: string;
   path: string;
+  /**
+   * Relative path of the career-ops clone inside the workspace.
+   * Defaults to "career-ops" (nested layout produced by the wizard).
+   * Use "." or another folder name when importing an existing folder
+   * whose layout doesn't match the wizard convention.
+   */
+  careerOpsRelPath?: string;
+  imported?: boolean;
   createdAt: string;
   lastUsedAt: string;
   health: WorkspaceHealth;

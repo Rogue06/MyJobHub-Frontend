@@ -11,7 +11,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "Profil introuvable." }, { status: 404 });
   }
 
-  const check = await checkWorkspace(ws.path);
+  const check = await checkWorkspace(ws.path, ws.careerOpsRelPath);
 
   const next = await updateAppConfig((current) => ({
     ...current,

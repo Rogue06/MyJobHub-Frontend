@@ -11,7 +11,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   if (!ws) {
     return NextResponse.json({ error: "Profil introuvable." }, { status: 404 });
   }
-  const check = await checkWorkspace(ws.path);
+  const check = await checkWorkspace(ws.path, ws.careerOpsRelPath);
   return NextResponse.json({ workspace: { ...ws, health: check.health, healthDetails: check.details }, check });
 }
 

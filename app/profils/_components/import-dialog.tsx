@@ -8,7 +8,9 @@ import {
   CheckCircle2,
   AlertTriangle,
   XCircle,
-  Search,
+  FolderSearch,
+  Sparkles,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,8 +25,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useWorkspace } from "@/components/providers/workspace-provider";
+import { FolderBrowser } from "./folder-browser";
 import { cn } from "@/lib/utils";
 
 interface CheckResult {
@@ -44,38 +50,76 @@ interface CheckResult {
   error?: string;
 }
 
+interface CareerOpsMatch {
+  path: string;
+  parent: string;
+  name: string;
+  layout: "flat";
+  hasCv: boolean;
+  hasProfile: boolean;
+  hasPortals: boolean;
+  hasNodeModules: boolean;
+}
+
 export function ImportProfileDialog() {
   const { refresh } = useWorkspace();
   const [open, setOpen] = React.useState(false);
+  const [tab, setTab] = React.useState<"auto" | "browse" | "manual">("auto");
+
   const [name, setName] = React.useState("");
   const [pathInput, setPathInput] = React.useState("");
   const [checking, setChecking] = React.useState(false);
   const [importing, setImporting] = React.useState(false);
   const [result, setResult] = React.useState<CheckResult | null>(null);
 
+  const [scanLoading, setScanLoading] = React.useState(false);
+  const [matches, setMatches] = React.useState<CareerOpsMatch[]>([]);
+  const [scanned, setScanned] = React.useState(false);
+
   const reset = () => {
     setName("");
     setPathInput("");
     setResult(null);
+    setMatches([]);
+    setScanned(false);
+    setTab("auto");
   };
 
-  const check = async () => {
-    if (!pathInput.trim()) return;
+  React.useEffect(() => {
+    if (open && !scanned && !scanLoading) {
+      void scan();
+    }
+  }, [open, scanned, scanLoading]);
+
+  const scan = async () => {
+    setScanLoading(true);
+    try {
+      const res = await fetch("/api/fs/scan");
+      const json = await res.json();
+      setMatches(json.matches ?? []);
+      setScanned(true);
+    } catch (err) {
+      toast.error(`Erreur de scan : ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setScanLoading(false);
+    }
+  };
+
+  const check = async (rawPath: string) => {
+    if (!rawPath.trim()) return;
+    setPathInput(rawPath);
     setChecking(true);
     setResult(null);
     try {
-      const res = await fetch(`/api/workspaces/import?path=${encodeURIComponent(pathInput.trim())}`);
+      const res = await fetch(`/api/workspaces/import?path=${encodeURIComponent(rawPath.trim())}`);
       const json = (await res.json()) as CheckResult;
       setResult(json);
-      if (json.ok && !name.trim() && json.resolvedWorkspacePath) {
-        const folderName = (json.careerOpsRelPath === "."
-          ? json.resolvedWorkspacePath
-          : pathInput
-        )
-          .split("/")
-          .filter(Boolean)
-          .slice(-1)[0];
-        setName(formatName(folderName));
+      if (json.ok && !name.trim()) {
+        const folderName =
+          json.careerOpsRelPath === "."
+            ? json.resolvedWorkspacePath?.split("/").filter(Boolean).slice(-1)[0]
+            : rawPath.split("/").filter(Boolean).slice(-1)[0];
+        if (folderName) setName(formatName(folderName));
       }
     } catch (err) {
       toast.error(`Erreur : ${err instanceof Error ? err.message : String(err)}`);
@@ -123,55 +167,149 @@ export function ImportProfileDialog() {
       <DialogTrigger render={<Button variant="outline" size="sm" />}>
         <FolderInput className="mr-2 h-4 w-4" /> Importer un profil existant
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Importer un profil career-ops existant</DialogTitle>
           <DialogDescription>
-            Indique le chemin d'un dossier déjà configuré (avec ton CV, ton profile.yml et tes portails).
-            MyJobHub détecte automatiquement la structure.
+            On scanne tes dossiers habituels pour trouver tes profils, ou tu peux parcourir manuellement.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="import-path">Chemin du dossier</Label>
-            <div className="flex gap-2">
-              <Input
-                id="import-path"
-                placeholder="Ex. /Users/rogue/Desktop/career-ops-alternance"
-                value={pathInput}
-                onChange={(e) => setPathInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && pathInput.trim()) {
-                    e.preventDefault();
-                    void check();
-                  }
-                }}
-                className="font-mono text-xs"
-              />
-              <Button onClick={check} disabled={!pathInput.trim() || checking} variant="outline">
-                {checking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+          <TabsList className="w-full">
+            <TabsTrigger value="auto" className="flex-1">
+              <Sparkles className="mr-2 h-3 w-3" /> Détection auto
+            </TabsTrigger>
+            <TabsTrigger value="browse" className="flex-1">
+              <FolderSearch className="mr-2 h-3 w-3" /> Parcourir
+            </TabsTrigger>
+            <TabsTrigger value="manual" className="flex-1">
+              <FolderInput className="mr-2 h-3 w-3" /> Coller le chemin
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="auto" className="mt-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">
+                Scan de <code>~/Desktop</code>, <code>~/Documents</code>, <code>~/Downloads</code>
+              </p>
+              <Button size="sm" variant="ghost" onClick={scan} disabled={scanLoading}>
+                <RefreshCw className={cn("mr-2 h-3 w-3", scanLoading && "animate-spin")} /> Re-scanner
               </Button>
             </div>
+            {scanLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            ) : matches.length === 0 ? (
+              <Card>
+                <CardContent className="py-6 text-center text-sm text-muted-foreground">
+                  Aucun dossier career-ops trouvé automatiquement.
+                  <br />
+                  Utilise l'onglet « Parcourir » ou « Coller le chemin ».
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {matches.map((m) => (
+                  <Card
+                    key={m.path}
+                    className="cursor-pointer transition-colors hover:bg-accent/40"
+                    onClick={() => {
+                      void check(m.path);
+                      setTab("manual");
+                    }}
+                  >
+                    <CardContent className="flex items-start gap-3 p-3">
+                      <CheckCircle2 className="mt-1 h-4 w-4 text-emerald-500" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{m.name}</p>
+                        <p className="truncate font-mono text-[10px] text-muted-foreground">{m.path}</p>
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {m.hasCv ? <Badge variant="outline" className="text-[10px]">cv.md</Badge> : null}
+                          {m.hasProfile ? (
+                            <Badge variant="outline" className="text-[10px]">profile.yml</Badge>
+                          ) : null}
+                          {m.hasPortals ? (
+                            <Badge variant="outline" className="text-[10px]">portals.yml</Badge>
+                          ) : null}
+                          {m.hasNodeModules ? (
+                            <Badge variant="secondary" className="text-[10px]">installé</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] text-amber-600 dark:text-amber-400">
+                              npm install requis
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="browse" className="mt-4 space-y-3">
+            <FolderBrowser
+              onSelect={(p) => {
+                void check(p);
+                setTab("manual");
+              }}
+              initialPath={pathInput || "~"}
+            />
             <p className="text-xs text-muted-foreground">
-              Tu peux utiliser <code>~/</code> pour ton dossier personnel.
+              Astuce : depuis le Finder, tu peux glisser un dossier dans le champ « Coller le chemin » pour récupérer son chemin.
             </p>
-          </div>
+          </TabsContent>
 
-          {result ? <ResultPanel result={result} /> : null}
-
-          {result?.ok ? (
+          <TabsContent value="manual" className="mt-4 space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="import-name">Nom du profil</Label>
-              <Input
-                id="import-name"
-                placeholder="Ex. Alternance ES Bank"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+              <Label htmlFor="import-path">Chemin du dossier</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="import-path"
+                  placeholder="Ex. /Users/rogue/Desktop/career-ops-alternance"
+                  value={pathInput}
+                  onChange={(e) => setPathInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && pathInput.trim()) {
+                      e.preventDefault();
+                      void check(pathInput);
+                    }
+                  }}
+                  className="font-mono text-xs"
+                />
+                <Button
+                  onClick={() => check(pathInput)}
+                  disabled={!pathInput.trim() || checking}
+                  variant="outline"
+                >
+                  {checking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Vérifier
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sur Mac : depuis le Finder, fais clic droit sur le dossier &gt; Options (⌥) &gt; « Copier "X" comme nom de chemin », puis colle ici.
+              </p>
             </div>
-          ) : null}
-        </div>
+
+            {result ? <ResultPanel result={result} /> : null}
+
+            {result?.ok ? (
+              <div className="space-y-1.5">
+                <Label htmlFor="import-name">Nom du profil</Label>
+                <Input
+                  id="import-name"
+                  placeholder="Ex. Alternance ES Bank"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+            ) : null}
+          </TabsContent>
+        </Tabs>
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)} disabled={importing}>
@@ -244,7 +382,5 @@ function FileLine({ label, present, optional }: { label: string; present: boolea
 }
 
 function formatName(folderName: string): string {
-  return folderName
-    .replace(/[-_]+/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return folderName.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }

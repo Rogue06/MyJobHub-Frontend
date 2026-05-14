@@ -14,12 +14,14 @@ import {
   ExternalLink,
   Wand2,
   AlertCircle,
+  Zap,
+  Radar,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/layout/page-shell";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -29,6 +31,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { LogViewer, LogEvent, consumeSseStream } from "@/components/log-viewer";
 import { useWorkspace } from "@/components/providers/workspace-provider";
 import { REJECTION_REASONS, RejectionReason } from "@/lib/triage-types";
 import { cn } from "@/lib/utils";
@@ -58,6 +61,8 @@ interface TriageData {
   feedback: { rejections: FeedbackEntry[]; approvals: { id: string; url: string; createdAt: string }[] };
 }
 
+type ScanMode = "fast" | "agent";
+
 interface ProposalChange {
   field: string;
   action: "add" | "remove" | "set";
@@ -79,6 +84,9 @@ export default function TriagePage() {
   const [proposal, setProposal] = React.useState<Proposal | null>(null);
   const [acceptedChanges, setAcceptedChanges] = React.useState<Set<number>>(new Set());
   const [applying, setApplying] = React.useState(false);
+  const [scanRunning, setScanRunning] = React.useState<false | ScanMode>(false);
+  const [scanLogs, setScanLogs] = React.useState<LogEvent[]>([]);
+  const [scanFinished, setScanFinished] = React.useState(false);
 
   const load = React.useCallback(async () => {
     if (!activeWorkspace) return;
@@ -101,6 +109,39 @@ export default function TriagePage() {
   React.useEffect(() => {
     void load();
   }, [load]);
+
+  const scan = async (mode: ScanMode) => {
+    if (!activeWorkspace) return;
+    setScanRunning(mode);
+    setScanFinished(false);
+    setScanLogs([]);
+    try {
+      const res = await fetch(`/api/workspaces/${activeWorkspace.id}/scan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        toast.error(j.error ?? "Démarrage du scan impossible");
+        return;
+      }
+      await consumeSseStream(res, (evt) => {
+        setScanLogs((prev) => [...prev, evt]);
+        if (evt.type === "done") {
+          setScanFinished(true);
+          void load();
+        }
+        if (evt.type === "error") {
+          toast.error(evt.message);
+        }
+      });
+    } catch (err) {
+      toast.error(`Erreur : ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setScanRunning(false);
+    }
+  };
 
   const addUrl = async () => {
     if (!activeWorkspace || !newUrl.trim()) return;
@@ -260,8 +301,62 @@ export default function TriagePage() {
 
           <TabsContent value="inbox" className="mt-6 space-y-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Ajouter une offre à trier</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Radar className="h-4 w-4" /> Scanner les sites d'annonces
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Cherche automatiquement de nouvelles offres dans les portails que tu as configurés.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={() => void scan("fast")}
+                    disabled={!!scanRunning}
+                    variant="default"
+                  >
+                    {scanRunning === "fast" ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Zap className="mr-2 h-4 w-4" />
+                    )}
+                    Scan rapide
+                  </Button>
+                  <Button
+                    onClick={() => void scan("agent")}
+                    disabled={!!scanRunning}
+                    variant="outline"
+                  >
+                    {scanRunning === "agent" ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-2 h-4 w-4" />
+                    )}
+                    Scan complet (IA)
+                  </Button>
+                  <p className="ml-auto self-center text-xs text-muted-foreground">
+                    Rapide : APIs Greenhouse/Ashby/Lever uniquement.
+                    <br />
+                    Complet : tous les portails via Claude (5-10 min).
+                  </p>
+                </div>
+                {scanLogs.length > 0 ? (
+                  <div className="space-y-2">
+                    <LogViewer logs={scanLogs} height={220} />
+                    {scanFinished && !scanRunning ? (
+                      <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                        ✓ Scan terminé. L'inbox a été rechargée.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Ajouter une offre à trier manuellement</CardTitle>
               </CardHeader>
               <CardContent className="flex gap-2">
                 <Input
@@ -282,7 +377,7 @@ export default function TriagePage() {
               <EmptyState
                 icon={Inbox}
                 title="Inbox vide"
-                description="Tu peux ajouter des URLs manuellement ci-dessus, ou lancer un scan via career-ops pour remplir l'inbox automatiquement."
+                description="Lance un scan ci-dessus, ou ajoute une URL manuellement. Les offres trouvées s'afficheront ici prêtes à trier."
               />
             ) : (
               <div className="space-y-2">

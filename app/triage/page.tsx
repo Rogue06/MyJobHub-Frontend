@@ -31,8 +31,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LogViewer, LogEvent, consumeSseStream } from "@/components/log-viewer";
+import { LogEvent, consumeSseStream } from "@/components/log-viewer";
+import { ScanProgress } from "@/components/scan-progress";
 import { ModelPicker, useModelPreference } from "@/components/forms/model-picker";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useWorkspace } from "@/components/providers/workspace-provider";
 import { REJECTION_REASONS, RejectionReason } from "@/lib/triage-types";
 import { cn } from "@/lib/utils";
@@ -337,22 +339,28 @@ export default function TriagePage() {
                     )}
                     Scan complet (IA)
                   </Button>
-                  <ModelPicker value={scanModel} onChange={setScanModel} compact />
+                  <Tooltip content="Choisis le modèle Claude utilisé pour le scan complet. Le scan rapide n'utilise pas Claude.">
+                    <ModelPicker value={scanModel} onChange={setScanModel} compact />
+                  </Tooltip>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   <strong>Rapide</strong> : APIs Greenhouse/Ashby/Lever uniquement, gratuit et instantané.
                   <br />
                   <strong>Complet (IA)</strong> : tous les portails via Claude, 5-10 min, consomme tes crédits Claude (le choix du modèle s'applique ici).
                 </p>
-                {scanLogs.length > 0 ? (
-                  <div className="space-y-2">
-                    <LogViewer logs={scanLogs} height={220} />
-                    {scanFinished && !scanRunning ? (
-                      <p className="text-xs text-emerald-700 dark:text-emerald-400">
-                        ✓ Scan terminé. L'inbox a été rechargée.
-                      </p>
-                    ) : null}
-                  </div>
+                {scanLogs.length > 0 || scanRunning ? (
+                  <ScanProgress
+                    logs={scanLogs}
+                    running={!!scanRunning}
+                    finished={scanFinished}
+                    title={
+                      scanRunning === "fast"
+                        ? "Scan rapide en cours…"
+                        : scanRunning === "agent"
+                          ? "Scan complet par Claude en cours…"
+                          : "Scan"
+                    }
+                  />
                 ) : null}
               </CardContent>
             </Card>

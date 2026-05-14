@@ -1,13 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Terminal } from "lucide-react";
+import * as Icons from "lucide-react";
+import { Terminal, Sparkles } from "lucide-react";
 import { PageShell } from "@/components/layout/page-shell";
 import { EmptyState } from "@/components/empty-state";
-import { Separator } from "@/components/ui/separator";
 import { useWorkspace } from "@/components/providers/workspace-provider";
-import { ACTION_CATEGORIES, actionsByCategory, ActionCategory } from "@/lib/actions-catalog";
-import { CATEGORY_STYLES } from "@/lib/action-styles";
+import { groupActionsByUsage, USAGE_GROUPS } from "@/lib/usage-groups";
 import { ActionCard } from "./_components/action-card";
 import { cn } from "@/lib/utils";
 
@@ -20,37 +19,48 @@ export default function ActionsPage() {
         <EmptyState
           icon={Terminal}
           title="Aucun profil actif"
-          description="Sélectionne un profil pour lancer des actions career-ops."
+          description="Sélectionne un profil pour accéder à toutes les commandes career-ops."
         />
       </PageShell>
     );
   }
 
-  const grouped = actionsByCategory();
-  const categories = Object.keys(ACTION_CATEGORIES) as ActionCategory[];
+  const grouped = groupActionsByUsage();
 
   return (
     <PageShell
       title="Actions career-ops"
-      description="Toutes les commandes et scripts disponibles, avec les mêmes options qu'en terminal."
+      description="Toutes les commandes regroupées par usage : trouver, rédiger, analyser, postuler, apprendre…"
     >
       <div className="space-y-10">
-        {categories.map((cat) => {
-          const actions = grouped[cat];
-          if (actions.length === 0) return null;
-          const cfg = ACTION_CATEGORIES[cat];
-          const style = CATEGORY_STYLES[cat];
+        {USAGE_GROUPS.map((group) => {
+          const actions = grouped[group.id];
+          if (!actions || actions.length === 0) return null;
+          const Icon =
+            (Icons as unknown as Record<string, React.ElementType>)[group.iconName] ?? Sparkles;
           return (
-            <section key={cat} className="space-y-4">
-              <div className="flex items-center gap-3">
-                <span className={cn("inline-block h-6 w-1 rounded-full", style.iconBg.replace("/10", ""))} />
-                <div>
-                  <h2 className="text-base font-semibold">{cfg.label}</h2>
-                  <p className="text-xs text-muted-foreground">{cfg.description}</p>
+            <section
+              key={group.id}
+              className={cn("space-y-4 rounded-xl border p-5", group.color.border, group.color.surface)}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className={cn(
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white",
+                    group.color.accent
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
                 </div>
+                <div className="min-w-0 flex-1">
+                  <h2 className={cn("text-base font-semibold", group.color.text)}>{group.label}</h2>
+                  <p className="text-xs text-muted-foreground">{group.tagline}</p>
+                </div>
+                <span className="rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  {actions.length} action{actions.length > 1 ? "s" : ""}
+                </span>
               </div>
-              <Separator />
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {actions.map((a) => (
                   <ActionCard key={a.id} action={a} />
                 ))}

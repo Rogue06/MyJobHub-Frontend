@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useWorkspace } from "@/components/providers/workspace-provider";
 import { LogViewer, LogEvent, consumeSseStream } from "@/components/log-viewer";
+import { ModelPicker, useModelPreference } from "@/components/forms/model-picker";
 
 export default function EvaluerPage() {
   const { activeWorkspace } = useWorkspace();
@@ -19,6 +20,7 @@ export default function EvaluerPage() {
   const [logs, setLogs] = React.useState<LogEvent[]>([]);
   const [done, setDone] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [model, setModel] = useModelPreference("myjobhub-model-evaluate");
 
   if (!activeWorkspace) {
     return (
@@ -48,7 +50,7 @@ export default function EvaluerPage() {
       const res = await fetch(`/api/workspaces/${activeWorkspace.id}/evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: content.trim() }),
+        body: JSON.stringify({ content: content.trim(), model }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -111,7 +113,7 @@ export default function EvaluerPage() {
             </AlertDescription>
           </Alert>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-end gap-3">
             <Button onClick={start} disabled={running || content.trim().length < 10}>
               {running ? (
                 <>
@@ -126,6 +128,7 @@ export default function EvaluerPage() {
             <Button variant="ghost" disabled={running} onClick={() => setContent("")}>
               Effacer
             </Button>
+            <ModelPicker value={model} onChange={setModel} compact className="ml-auto" />
           </div>
 
           {error ? (

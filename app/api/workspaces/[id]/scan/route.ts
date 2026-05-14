@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { readAppConfig } from "@/lib/app-config";
 import { runCommand, createSseStream } from "@/lib/cli";
 import { getCareerOpsPath } from "@/lib/workspace";
-import { isClaudeAvailable } from "@/lib/claude-runner";
+import { isClaudeAvailable, ClaudeModelChoice, buildClaudeArgs } from "@/lib/claude-runner";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -10,11 +10,13 @@ export const maxDuration = 900;
 
 interface ScanPayload {
   mode?: "fast" | "agent";
+  model?: ClaudeModelChoice;
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const body = (await req.json().catch(() => ({}))) as ScanPayload;
   const mode = body.mode ?? "fast";
+  const model = body.model ?? "default";
 
   return createSseStream(async (emit) => {
     const config = await readAppConfig();
@@ -69,9 +71,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         });
         return;
       }
-      emit({ type: "step", message: "Scan complet via Claude (Playwright + WebSearch). Cela peut prendre 5-10 min." });
+      emit({
+        type: "step",
+        message: `Scan complet via Claude (Playwright + WebSearch). Modèle : ${model}. Cela peut prendre 5-10 min.`,
+      });
 
-      const result = await runCommand("claude", ["-p", "/career-ops scan"], {
+      const result = await runCommand("claude", buildClaudeArgs("/career-ops scan", model), {
         cwd: careerOpsPath,
         onEvent: (e) => {
           if (e.type === "stdout") {

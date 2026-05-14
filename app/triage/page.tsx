@@ -32,6 +32,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LogViewer, LogEvent, consumeSseStream } from "@/components/log-viewer";
+import { ModelPicker, useModelPreference } from "@/components/forms/model-picker";
 import { useWorkspace } from "@/components/providers/workspace-provider";
 import { REJECTION_REASONS, RejectionReason } from "@/lib/triage-types";
 import { cn } from "@/lib/utils";
@@ -87,6 +88,7 @@ export default function TriagePage() {
   const [scanRunning, setScanRunning] = React.useState<false | ScanMode>(false);
   const [scanLogs, setScanLogs] = React.useState<LogEvent[]>([]);
   const [scanFinished, setScanFinished] = React.useState(false);
+  const [scanModel, setScanModel] = useModelPreference("myjobhub-model-scan");
 
   const load = React.useCallback(async () => {
     if (!activeWorkspace) return;
@@ -119,7 +121,7 @@ export default function TriagePage() {
       const res = await fetch(`/api/workspaces/${activeWorkspace.id}/scan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode }),
+        body: JSON.stringify({ mode, model: scanModel }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -310,7 +312,7 @@ export default function TriagePage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-end gap-3">
                   <Button
                     onClick={() => void scan("fast")}
                     disabled={!!scanRunning}
@@ -335,12 +337,13 @@ export default function TriagePage() {
                     )}
                     Scan complet (IA)
                   </Button>
-                  <p className="ml-auto self-center text-xs text-muted-foreground">
-                    Rapide : APIs Greenhouse/Ashby/Lever uniquement.
-                    <br />
-                    Complet : tous les portails via Claude (5-10 min).
-                  </p>
+                  <ModelPicker value={scanModel} onChange={setScanModel} compact />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  <strong>Rapide</strong> : APIs Greenhouse/Ashby/Lever uniquement, gratuit et instantané.
+                  <br />
+                  <strong>Complet (IA)</strong> : tous les portails via Claude, 5-10 min, consomme tes crédits Claude (le choix du modèle s'applique ici).
+                </p>
                 {scanLogs.length > 0 ? (
                   <div className="space-y-2">
                     <LogViewer logs={scanLogs} height={220} />

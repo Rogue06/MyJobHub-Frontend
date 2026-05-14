@@ -12,6 +12,7 @@ import {
   Settings,
   Users,
   Compass,
+  Terminal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/components/providers/workspace-provider";
@@ -52,6 +53,13 @@ const PRIMARY: NavItem[] = [
     href: "/documents",
     icon: FileText,
     description: "CV et lettres générés",
+    requiresWorkspace: true,
+  },
+  {
+    label: "Actions",
+    href: "/actions",
+    icon: Terminal,
+    description: "Toutes les commandes career-ops",
     requiresWorkspace: true,
   },
 ];

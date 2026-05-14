@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # install-mac.sh — Installe un raccourci .command sur le Bureau pour
 # lancer MyJobHub en double-cliquant (macOS uniquement).
 
@@ -13,18 +13,38 @@ REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
 DESKTOP_DIR="$HOME/Desktop"
 COMMAND_FILE="$DESKTOP_DIR/MyJobHub.command"
 
+# Le shebang `#!/bin/bash` est volontairement hard-codé pour éviter que
+# `/usr/bin/env bash` ne sélectionne un bash MacPorts non compatible
+# avec les Macs Apple Silicon (arm64). `/bin/bash` est toujours présent
+# sur macOS et compatible avec toutes les architectures.
+
 cat > "$COMMAND_FILE" << EOF
-#!/usr/bin/env bash
+#!/bin/bash
 # Raccourci MyJobHub — généré par install-mac.sh
 # Ferme cette fenêtre Terminal pour arrêter MyJobHub.
 
 set -e
+
+# PATH explicite (priorité Homebrew Apple Silicon, puis Intel, puis système)
+# pour éviter d'utiliser un bash/node MacPorts incompatible.
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:\$PATH"
+
 cd "$REPO_DIR"
 
+# Active la bonne version de Node via nvm si disponible.
 if [ -s "\$HOME/.nvm/nvm.sh" ]; then
   # shellcheck disable=SC1090
   source "\$HOME/.nvm/nvm.sh"
   nvm use 22.5.1 >/dev/null 2>&1 || true
+fi
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo ""
+  echo "❌ npm n'a pas été trouvé."
+  echo "   Installe Node.js (https://nodejs.org) ou nvm, puis relance ce raccourci."
+  echo ""
+  read -r -p "Appuie sur Entrée pour fermer..."
+  exit 1
 fi
 
 echo "🚀 Démarrage de MyJobHub..."

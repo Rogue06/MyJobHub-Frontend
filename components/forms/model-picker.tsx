@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { Cpu, Check, ChevronDown } from "lucide-react";
 import { CLAUDE_MODEL_OPTIONS, ClaudeModelChoice } from "@/lib/claude-models";
 import { cn } from "@/lib/utils";
@@ -34,25 +35,69 @@ export function useModelPreference(storageKey: string, fallback: ClaudeModelChoi
   return [model, update] as const;
 }
 
-/**
- * Sélecteur de modèle Claude — implémentation HTML native pour éviter
- * les bugs de Menu.Item de base-ui qui dans certains contextes
- * n'émettait pas l'onClick et bloquait la sélection.
- */
+interface MenuPosition {
+  top: number;
+  left: number;
+  minWidth: number;
+  openUpwards: boolean;
+}
+
+const MENU_WIDTH = 300;
+const MENU_HEIGHT_ESTIMATE = 260;
+
 export function ModelPicker({ value, onChange, className, compact = false }: Props) {
   const [open, setOpen] = React.useState(false);
-  const [openUpwards, setOpenUpwards] = React.useState(false);
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [position, setPosition] = React.useState<MenuPosition | null>(null);
+  const [mounted, setMounted] = React.useState(false);
   const buttonRef = React.useRef<HTMLButtonElement>(null);
+  const menuRef = React.useRef<HTMLDivElement>(null);
 
   const current = CLAUDE_MODEL_OPTIONS.find((o) => o.id === value) ?? CLAUDE_MODEL_OPTIONS[0];
 
   React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const computePosition = React.useCallback(() => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    const openUpwards = spaceBelow < MENU_HEIGHT_ESTIMATE && spaceAbove > spaceBelow;
+
+    const gap = 4;
+    const minWidth = Math.max(rect.width, MENU_WIDTH);
+
+    let left = rect.left;
+    // Clamp horizontally to viewport
+    if (left + minWidth > window.innerWidth - 8) {
+      left = window.innerWidth - minWidth - 8;
+    }
+    left = Math.max(8, left);
+
+    const top = openUpwards ? rect.top - MENU_HEIGHT_ESTIMATE - gap : rect.bottom + gap;
+
+    setPosition({ top, left, minWidth, openUpwards });
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    computePosition();
+    const onScrollOrResize = () => computePosition();
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [open, computePosition]);
+
+  React.useEffect(() => {
     if (!open) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (buttonRef.current?.contains(e.target as Node)) return;
+      if (menuRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
     };
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
@@ -65,18 +110,15 @@ export function ModelPicker({ value, onChange, className, compact = false }: Pro
     };
   }, [open]);
 
-  const toggle = () => {
-    if (!open && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      const menuHeight = 260;
-      const spaceBelow = window.innerHeight - rect.bottom;
-      setOpenUpwards(spaceBelow < menuHeight && rect.top > menuHeight);
-    }
-    setOpen((o) => !o);
+  const toggle = () => setOpen((o) => !o);
+
+  const handleSelect = (id: ClaudeModelChoice) => {
+    onChange(id);
+    setOpen(false);
   };
 
   return (
-    <div ref={containerRef} className={cn("relative inline-block", className)}>
+    <div className={cn("relative inline-block", className)}>
       <button
         ref={buttonRef}
         type="button"
@@ -95,45 +137,52 @@ export function ModelPicker({ value, onChange, className, compact = false }: Pro
         />
       </button>
 
-      {open ? (
-        <div
-          role="listbox"
-          className={cn(
-            "absolute left-0 z-50 w-[300px] rounded-md border bg-popover p-1 shadow-lg",
-            openUpwards ? "bottom-full mb-1" : "top-full mt-1"
-          )}
-        >
-          {CLAUDE_MODEL_OPTIONS.map((opt) => {
-            const selected = opt.id === value;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                role="option"
-                aria-selected={selected}
-                onClick={() => {
-                  onChange(opt.id);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left transition-colors hover:bg-accent",
-                  selected && "bg-accent/50"
-                )}
-              >
-                <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
-                  {selected ? <Check className="h-3.5 w-3.5 text-primary" /> : null}
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium leading-tight">{opt.label}</span>
-                  <span className="text-[11px] leading-tight text-muted-foreground">
-                    {opt.description}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+      {mounted && open
+        ? createPortal(
+            <div
+              ref={menuRef}
+              role="listbox"
+              className="fixed z-[9999] rounded-md border bg-popover p-1 shadow-lg"
+              style={
+                position
+                  ? {
+                      top: `${position.top}px`,
+                      left: `${position.left}px`,
+                      minWidth: `${position.minWidth}px`,
+                    }
+                  : { top: "-9999px", left: "-9999px" }
+              }
+            >
+              {CLAUDE_MODEL_OPTIONS.map((opt) => {
+                const selected = opt.id === value;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    onClick={() => handleSelect(opt.id)}
+                    className={cn(
+                      "flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left transition-colors hover:bg-accent",
+                      selected && "bg-accent/50"
+                    )}
+                  >
+                    <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+                      {selected ? <Check className="h-3.5 w-3.5 text-primary" /> : null}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium leading-tight">{opt.label}</span>
+                      <span className="text-[11px] leading-tight text-muted-foreground">
+                        {opt.description}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }

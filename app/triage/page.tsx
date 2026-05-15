@@ -64,7 +64,7 @@ interface TriageData {
   feedback: { rejections: FeedbackEntry[]; approvals: { id: string; url: string; createdAt: string }[] };
 }
 
-type ScanMode = "fast" | "agent";
+type ScanMode = "fast" | "agent" | "auto";
 
 interface ProposalChange {
   field: string;
@@ -120,10 +120,15 @@ export default function TriagePage() {
     setScanFinished(false);
     setScanLogs([]);
     try {
-      const res = await fetch(`/api/workspaces/${activeWorkspace.id}/scan`, {
+      const endpoint =
+        mode === "auto"
+          ? `/api/workspaces/${activeWorkspace.id}/auto-pipeline`
+          : `/api/workspaces/${activeWorkspace.id}/scan`;
+      const body = mode === "auto" ? { scanMode: "agent", model: scanModel } : { mode, model: scanModel };
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode, model: scanModel }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -316,38 +321,51 @@ export default function TriagePage() {
               <CardContent className="space-y-3">
                 <div className="flex flex-wrap items-end gap-3">
                   <Button
-                    onClick={() => void scan("fast")}
+                    onClick={() => void scan("auto")}
                     disabled={!!scanRunning}
                     variant="default"
+                    className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600"
                   >
+                    {scanRunning === "auto" ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Wand2 className="mr-2 h-4 w-4" />
+                    )}
+                    Tout automatiser (scan + évaluation)
+                  </Button>
+                  <Button onClick={() => void scan("fast")} disabled={!!scanRunning} variant="outline">
                     {scanRunning === "fast" ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
                       <Zap className="mr-2 h-4 w-4" />
                     )}
-                    Scan rapide
+                    Scan rapide seul
                   </Button>
-                  <Button
-                    onClick={() => void scan("agent")}
-                    disabled={!!scanRunning}
-                    variant="outline"
-                  >
+                  <Button onClick={() => void scan("agent")} disabled={!!scanRunning} variant="outline">
                     {scanRunning === "agent" ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
                       <Sparkles className="mr-2 h-4 w-4" />
                     )}
-                    Scan complet (IA)
+                    Scan complet seul
                   </Button>
-                  <Tooltip content="Choisis le modèle Claude utilisé pour le scan complet. Le scan rapide n'utilise pas Claude.">
-                    <ModelPicker value={scanModel} onChange={setScanModel} compact />
-                  </Tooltip>
+                  <ModelPicker value={scanModel} onChange={setScanModel} compact />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  <strong>Rapide</strong> : APIs Greenhouse/Ashby/Lever uniquement, gratuit et instantané.
-                  <br />
-                  <strong>Complet (IA)</strong> : tous les portails via Claude, 5-10 min, consomme tes crédits Claude (le choix du modèle s'applique ici).
-                </p>
+                <div className="space-y-1.5 text-xs text-muted-foreground">
+                  <p>
+                    <strong className="text-foreground">Tout automatiser</strong> 🪄 — le bouton recommandé :
+                    scan complet puis évaluation immédiate de toutes les nouvelles offres. 20-30 min en arrière-plan.
+                    À la fin, les rapports et CV adaptés t'attendent dans Candidatures et Documents. Rien à faire à la main.
+                  </p>
+                  <p>
+                    <strong>Scan rapide seul</strong> ⚡ — APIs Greenhouse/Ashby/Lever uniquement, ~10 secondes, gratuit
+                    (ne consomme pas Claude). Ne couvre pas les portails FR comme France Travail.
+                  </p>
+                  <p>
+                    <strong>Scan complet seul</strong> ✨ — Claude visite tous les portails (5-10 min) mais n'évalue pas
+                    les offres trouvées. Utile pour juste remplir l'inbox sans tout évaluer tout de suite.
+                  </p>
+                </div>
                 {scanLogs.length > 0 || scanRunning ? (
                   <ScanProgress
                     logs={scanLogs}
@@ -358,7 +376,9 @@ export default function TriagePage() {
                         ? "Scan rapide en cours…"
                         : scanRunning === "agent"
                           ? "Scan complet par Claude en cours…"
-                          : "Scan"
+                          : scanRunning === "auto"
+                            ? "Workflow automatique en cours (scan + évaluation)…"
+                            : "Scan"
                     }
                   />
                 ) : null}

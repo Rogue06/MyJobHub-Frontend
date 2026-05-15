@@ -378,7 +378,7 @@ export default function TriagePage() {
                     )}
                     Scan complet seul
                   </Button>
-                  <ModelPicker value={scanModel} onChange={setScanModel} compact />
+                  <ModelPicker value={scanModel} onChange={setScanModel} recommendedModel="sonnet" compact />
                 </div>
                 <ul className="space-y-1 text-xs text-muted-foreground">
                   <li>

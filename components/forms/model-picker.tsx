@@ -2,13 +2,16 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { Cpu, Check, ChevronDown } from "lucide-react";
+import { Cpu, Check, ChevronDown, Sparkles } from "lucide-react";
 import { CLAUDE_MODEL_OPTIONS, ClaudeModelChoice } from "@/lib/claude-models";
+import { MODEL_PREFS_EVENT, emitModelPrefsChange } from "@/lib/model-prefs";
 import { cn } from "@/lib/utils";
 
 interface Props {
   value: ClaudeModelChoice;
   onChange: (next: ClaudeModelChoice) => void;
+  /** Si fourni, l'option correspondante est mise en avant dans le menu avec un badge "Recommandé". */
+  recommendedModel?: ClaudeModelChoice;
   className?: string;
   compact?: boolean;
 }
@@ -16,18 +19,32 @@ interface Props {
 export function useModelPreference(storageKey: string, fallback: ClaudeModelChoice = "default") {
   const [model, setModel] = React.useState<ClaudeModelChoice>(fallback);
 
-  React.useEffect(() => {
+  const reload = React.useCallback(() => {
     if (typeof window === "undefined") return;
     const stored = localStorage.getItem(storageKey) as ClaudeModelChoice | null;
     if (stored && CLAUDE_MODEL_OPTIONS.some((o) => o.id === stored)) {
       setModel(stored);
+    } else {
+      setModel(fallback);
     }
-  }, [storageKey]);
+  }, [storageKey, fallback]);
+
+  React.useEffect(() => {
+    reload();
+    const handler = () => reload();
+    if (typeof window !== "undefined") {
+      window.addEventListener(MODEL_PREFS_EVENT, handler);
+      return () => window.removeEventListener(MODEL_PREFS_EVENT, handler);
+    }
+  }, [reload]);
 
   const update = React.useCallback(
     (next: ClaudeModelChoice) => {
       setModel(next);
-      if (typeof window !== "undefined") localStorage.setItem(storageKey, next);
+      if (typeof window !== "undefined") {
+        localStorage.setItem(storageKey, next);
+        emitModelPrefsChange();
+      }
     },
     [storageKey]
   );
@@ -42,10 +59,10 @@ interface MenuPosition {
   openUpwards: boolean;
 }
 
-const MENU_WIDTH = 300;
-const MENU_HEIGHT_ESTIMATE = 260;
+const MENU_WIDTH = 320;
+const MENU_HEIGHT_ESTIMATE = 280;
 
-export function ModelPicker({ value, onChange, className, compact = false }: Props) {
+export function ModelPicker({ value, onChange, recommendedModel, className, compact = false }: Props) {
   const [open, setOpen] = React.useState(false);
   const [position, setPosition] = React.useState<MenuPosition | null>(null);
   const [mounted, setMounted] = React.useState(false);
@@ -69,7 +86,6 @@ export function ModelPicker({ value, onChange, className, compact = false }: Pro
     const minWidth = Math.max(rect.width, MENU_WIDTH);
 
     let left = rect.left;
-    // Clamp horizontally to viewport
     if (left + minWidth > window.innerWidth - 8) {
       left = window.innerWidth - minWidth - 8;
     }
@@ -132,9 +148,10 @@ export function ModelPicker({ value, onChange, className, compact = false }: Pro
       >
         <Cpu className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="font-medium">{current.label}</span>
-        <ChevronDown
-          className={cn("h-3 w-3 opacity-60 transition-transform", open && "rotate-180")}
-        />
+        {recommendedModel && value === recommendedModel ? (
+          <Sparkles className="h-3 w-3 text-amber-500" aria-label="Modèle recommandé actif" />
+        ) : null}
+        <ChevronDown className={cn("h-3 w-3 opacity-60 transition-transform", open && "rotate-180")} />
       </button>
 
       {mounted && open
@@ -155,6 +172,7 @@ export function ModelPicker({ value, onChange, className, compact = false }: Pro
             >
               {CLAUDE_MODEL_OPTIONS.map((opt) => {
                 const selected = opt.id === value;
+                const isRecommended = recommendedModel === opt.id;
                 return (
                   <button
                     key={opt.id}
@@ -164,18 +182,32 @@ export function ModelPicker({ value, onChange, className, compact = false }: Pro
                     onClick={() => handleSelect(opt.id)}
                     className={cn(
                       "flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left transition-colors hover:bg-accent",
-                      selected && "bg-accent/50"
+                      selected && "bg-accent/60",
+                      isRecommended && !selected && "ring-1 ring-inset ring-amber-500/40 bg-amber-500/5"
                     )}
                   >
                     <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
                       {selected ? <Check className="h-3.5 w-3.5 text-primary" /> : null}
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium leading-tight">{opt.label}</span>
+                    <div className="flex flex-1 flex-col">
+                      <span
+                        className={cn(
+                          "text-sm font-medium leading-tight",
+                          isRecommended && "text-amber-700 dark:text-amber-300"
+                        )}
+                      >
+                        {opt.label}
+                      </span>
                       <span className="text-[11px] leading-tight text-muted-foreground">
                         {opt.description}
                       </span>
                     </div>
+                    {isRecommended ? (
+                      <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                        <Sparkles className="h-2.5 w-2.5" />
+                        Recommandé
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}

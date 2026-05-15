@@ -2,17 +2,35 @@
 
 import * as React from "react";
 import * as Icons from "lucide-react";
-import { Terminal, Sparkles } from "lucide-react";
+import { Terminal, Sparkles, Wand2, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
 import { PageShell } from "@/components/layout/page-shell";
 import { EmptyState } from "@/components/empty-state";
+import { Button } from "@/components/ui/button";
 import { useWorkspace } from "@/components/providers/workspace-provider";
 import { groupActionsByUsage, USAGE_GROUPS } from "@/lib/usage-groups";
+import {
+  applyRecommendedModelsEverywhere,
+  countRecommendationsApplied,
+  resetAllModelPrefs,
+  MODEL_PREFS_EVENT,
+} from "@/lib/model-prefs";
 import { ActionCard } from "./_components/action-card";
 import { cn } from "@/lib/utils";
 
 export default function ActionsPage() {
   const { activeWorkspace } = useWorkspace();
   const sectionsRef = React.useRef<Record<string, HTMLElement | null>>({});
+  const [recoStatus, setRecoStatus] = React.useState({ applied: 0, total: 0 });
+
+  React.useEffect(() => {
+    const update = () => setRecoStatus(countRecommendationsApplied());
+    update();
+    if (typeof window !== "undefined") {
+      window.addEventListener(MODEL_PREFS_EVENT, update);
+      return () => window.removeEventListener(MODEL_PREFS_EVENT, update);
+    }
+  }, []);
 
   if (!activeWorkspace) {
     return (
@@ -27,18 +45,50 @@ export default function ActionsPage() {
   }
 
   const grouped = groupActionsByUsage();
+  const allRecoApplied = recoStatus.total > 0 && recoStatus.applied === recoStatus.total;
 
   const scrollTo = (id: string) => {
     const el = sectionsRef.current[id];
     if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY - 100;
+    const top = el.getBoundingClientRect().top + window.scrollY - 120;
     window.scrollTo({ top, behavior: "smooth" });
+  };
+
+  const applyAll = () => {
+    const result = applyRecommendedModelsEverywhere();
+    toast.success(
+      `${result.updated} modèles recommandés appliqués sur ${result.total} actions configurables.`
+    );
+  };
+
+  const resetAll = () => {
+    resetAllModelPrefs();
+    toast.success("Tous les modèles réinitialisés au défaut.");
   };
 
   return (
     <PageShell
       title="Actions career-ops"
       description="Toutes les commandes regroupées par usage : trouver, rédiger, analyser, postuler, apprendre…"
+      actions={
+        <>
+          <Button
+            variant={allRecoApplied ? "outline" : "default"}
+            size="sm"
+            onClick={applyAll}
+            className={cn(!allRecoApplied && "bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600")}
+          >
+            <Wand2 className="mr-2 h-4 w-4" />
+            {allRecoApplied
+              ? `✓ Recos actives (${recoStatus.applied}/${recoStatus.total})`
+              : `Utiliser les modèles recommandés (${recoStatus.applied}/${recoStatus.total})`}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={resetAll}>
+            <RotateCcw className="mr-2 h-3 w-3" />
+            Réinitialiser
+          </Button>
+        </>
+      }
     >
       <div className="space-y-6">
         <nav className="sticky top-2 z-20 flex flex-wrap gap-2 rounded-lg border bg-background/95 p-2 backdrop-blur">

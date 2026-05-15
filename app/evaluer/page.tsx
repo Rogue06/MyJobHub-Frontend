@@ -128,7 +128,7 @@ export default function EvaluerPage() {
             <Button variant="ghost" disabled={running} onClick={() => setContent("")}>
               Effacer
             </Button>
-            <ModelPicker value={model} onChange={setModel} compact className="ml-auto" />
+            <ModelPicker value={model} onChange={setModel} recommendedModel="sonnet" compact className="ml-auto" />
           </div>
 
           {error ? (

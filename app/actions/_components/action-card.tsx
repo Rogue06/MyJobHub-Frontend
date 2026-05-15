@@ -148,7 +148,12 @@ export function ActionCard({ action }: Props) {
               Lancer
             </Button>
             {action.usesClaudeModel ? (
-              <ModelPicker value={model} onChange={setModel} compact />
+              <ModelPicker
+                value={model}
+                onChange={setModel}
+                recommendedModel={action.recommendedModel}
+                compact
+              />
             ) : null}
             {open ? (
               <Button size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={running} className="ml-auto">

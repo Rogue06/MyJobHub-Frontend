@@ -75,8 +75,13 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         type: "step",
         message: `Scan complet via Claude (Playwright + WebSearch). Modèle : ${model}. Cela peut prendre 5-10 min.`,
       });
+      const claudeArgs = buildClaudeArgs("/career-ops scan", model);
+      emit({
+        type: "info",
+        message: `Commande exacte : claude ${claudeArgs.map((a) => (a.startsWith("/") ? `"${a}"` : a)).join(" ")}`,
+      });
 
-      const result = await runCommand("claude", buildClaudeArgs("/career-ops scan", model), {
+      const result = await runCommand("claude", claudeArgs, {
         cwd: careerOpsPath,
         onEvent: (e) => {
           if (e.type === "stdout") {

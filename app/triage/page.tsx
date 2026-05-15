@@ -380,21 +380,17 @@ export default function TriagePage() {
                   </Button>
                   <ModelPicker value={scanModel} onChange={setScanModel} compact />
                 </div>
-                <div className="space-y-1.5 text-xs text-muted-foreground">
-                  <p>
-                    <strong className="text-foreground">Tout automatiser</strong> 🪄 — le bouton recommandé :
-                    scan complet puis évaluation immédiate de toutes les nouvelles offres. 20-30 min en arrière-plan.
-                    À la fin, les rapports et CV adaptés t'attendent dans Candidatures et Documents. Rien à faire à la main.
-                  </p>
-                  <p>
-                    <strong>Scan rapide seul</strong> ⚡ — APIs Greenhouse/Ashby/Lever uniquement, ~10 secondes, gratuit
-                    (ne consomme pas Claude). Ne couvre pas les portails FR comme France Travail.
-                  </p>
-                  <p>
-                    <strong>Scan complet seul</strong> ✨ — Claude visite tous les portails (5-10 min) mais n'évalue pas
-                    les offres trouvées. Utile pour juste remplir l'inbox sans tout évaluer tout de suite.
-                  </p>
-                </div>
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  <li>
+                    🪄 <strong className="text-foreground">Tout automatiser</strong> — scan + évaluation en 20-30 min, rien à faire à la main.
+                  </li>
+                  <li>
+                    ⚡ <strong>Scan rapide</strong> — APIs publiques uniquement, instantané, sans Claude.
+                  </li>
+                  <li>
+                    ✨ <strong>Scan complet</strong> — remplit l'inbox via Claude (5-10 min), sans évaluer.
+                  </li>
+                </ul>
                 {scanLogs.length > 0 || scanRunning ? (
                   <ScanProgress
                     logs={scanLogs}

@@ -53,12 +53,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
       const model = body.model ?? "default";
       const prompt = args.length > 0 ? `/career-ops ${action.command} ${args}` : `/career-ops ${action.command}`;
+      const claudeArgs = buildClaudeArgs(prompt, model);
       emit({
         type: "step",
         message: `Lancement de \`/career-ops ${action.command}\` (modèle : ${model}).`,
       });
+      emit({
+        type: "info",
+        message: `Commande exacte : claude ${claudeArgs.map((a) => (a.includes(" ") || a.startsWith("/") ? `"${a}"` : a)).join(" ")}`,
+      });
 
-      const result = await runCommand("claude", buildClaudeArgs(prompt, model), {
+      const result = await runCommand("claude", claudeArgs, {
         cwd: careerOpsPath,
         onEvent: (e) => {
           if (e.type === "stdout") {

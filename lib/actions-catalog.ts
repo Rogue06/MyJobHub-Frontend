@@ -18,6 +18,10 @@ export interface ActionDefinition {
   argsMultiline?: boolean;
   /** Indique si la commande consomme des crédits Claude (= peut bénéficier du sélecteur de modèle). */
   usesClaudeModel?: boolean;
+  /** Modèle recommandé pour cette action spécifique. */
+  recommendedModel?: "haiku" | "sonnet" | "opus";
+  /** Une phrase pour justifier la recommandation (affichée en tooltip ou sous le sélecteur). */
+  modelGuidance?: string;
   /** Avertissement à afficher avant exécution (ex. action destructive). */
   warning?: string;
   /** Icône (nom Lucide React). */
@@ -61,6 +65,8 @@ export const ACTIONS: ActionDefinition[] = [
     argsHint: "Le PDF est sauvegardé dans output/ — visible dans le module Documents.",
     argsRequired: false,
     usesClaudeModel: true,
+    recommendedModel: "sonnet",
+    modelGuidance: "Sonnet : bon équilibre pour adapter un CV (qualité d'écriture + coût raisonnable).",
     iconName: "FileText",
   },
   {
@@ -75,6 +81,8 @@ export const ACTIONS: ActionDefinition[] = [
     argsHint: "Ignore cette action si tu n'as pas déjà utilisé LaTeX — le CV PDF classique fait parfaitement l'affaire.",
     argsRequired: false,
     usesClaudeModel: true,
+    recommendedModel: "sonnet",
+    modelGuidance: "Sonnet suffit pour produire un .tex propre. Pas besoin d'Opus pour du LaTeX.",
     iconName: "FileCode2",
   },
   {
@@ -88,6 +96,8 @@ export const ACTIONS: ActionDefinition[] = [
     argsMultiline: true,
     argsRequired: false,
     usesClaudeModel: true,
+    recommendedModel: "haiku",
+    modelGuidance: "Haiku conseillé en batch : tu traites beaucoup d'offres d'un coup, on économise.",
     iconName: "Layers",
   },
   {
@@ -101,6 +111,8 @@ export const ACTIONS: ActionDefinition[] = [
     argsMultiline: true,
     argsRequired: true,
     usesClaudeModel: true,
+    recommendedModel: "sonnet",
+    modelGuidance: "Sonnet : analyse comparative équilibrée. Opus si la décision est importante.",
     iconName: "GitCompare",
   },
   {
@@ -113,6 +125,8 @@ export const ACTIONS: ActionDefinition[] = [
     argsPlaceholder: "Nom de l'entreprise (ex. BNP Paribas, ES Bank)",
     argsRequired: true,
     usesClaudeModel: true,
+    recommendedModel: "opus",
+    modelGuidance: "Opus recommandé : recherche profonde, croisement de sources, raisonnement complexe.",
     iconName: "Telescope",
   },
   {
@@ -125,6 +139,8 @@ export const ACTIONS: ActionDefinition[] = [
     argsPlaceholder: "Nom du cours, URL ou description",
     argsRequired: true,
     usesClaudeModel: true,
+    recommendedModel: "sonnet",
+    modelGuidance: "Sonnet : suffisant pour évaluer le ROI d'une formation.",
     iconName: "GraduationCap",
   },
   {
@@ -138,6 +154,8 @@ export const ACTIONS: ActionDefinition[] = [
     argsMultiline: true,
     argsRequired: true,
     usesClaudeModel: true,
+    recommendedModel: "sonnet",
+    modelGuidance: "Sonnet : analyse de signal claire et concise.",
     iconName: "Briefcase",
   },
 
@@ -151,6 +169,8 @@ export const ACTIONS: ActionDefinition[] = [
     description: "Évalue toutes les URLs en attente dans data/pipeline.md en parallèle. Lance le pipeline complet sur chacune.",
     argsRequired: false,
     usesClaudeModel: true,
+    recommendedModel: "haiku",
+    modelGuidance: "Haiku conseillé : tu évalues une grosse fournée d'un coup, on économise sans perdre en pertinence du tri.",
     iconName: "Workflow",
   },
   {
@@ -163,6 +183,8 @@ export const ACTIONS: ActionDefinition[] = [
     argsPlaceholder: "ID de l'offre (optionnel) ou URL du formulaire",
     argsRequired: false,
     usesClaudeModel: true,
+    recommendedModel: "sonnet",
+    modelGuidance: "Sonnet : génère des réponses naturelles et contextualisées.",
     iconName: "PencilLine",
   },
   {
@@ -175,6 +197,8 @@ export const ACTIONS: ActionDefinition[] = [
     argsPlaceholder: "Entreprise et poste (ex. BNP Paribas — Conseiller clientèle)",
     argsRequired: true,
     usesClaudeModel: true,
+    recommendedModel: "opus",
+    modelGuidance: "Opus : le message d'approche doit sonner juste, c'est ta porte d'entrée — privilégie la qualité.",
     iconName: "Linkedin",
   },
   {
@@ -186,6 +210,8 @@ export const ACTIONS: ActionDefinition[] = [
     description: "Liste les candidatures en attente de relance et propose un brouillon de message pour chacune.",
     argsRequired: false,
     usesClaudeModel: true,
+    recommendedModel: "haiku",
+    modelGuidance: "Haiku : les relances sont courtes et tu en envoies plusieurs, on économise.",
     iconName: "BellRing",
   },
   {
@@ -198,6 +224,8 @@ export const ACTIONS: ActionDefinition[] = [
     argsPlaceholder: "Entreprise et poste (ex. Crédit Agricole — Conseiller patrimonial)",
     argsRequired: true,
     usesClaudeModel: true,
+    recommendedModel: "opus",
+    modelGuidance: "Opus : c'est ton entretien, l'investissement vaut le coup. Tu n'en passes pas tous les jours.",
     iconName: "Mic",
   },
   {
@@ -209,6 +237,8 @@ export const ACTIONS: ActionDefinition[] = [
     description: "Repère les patterns dans tes candidatures (ce qui marche, ce qui rate). Identifie ce qui te fait perdre du temps.",
     argsRequired: false,
     usesClaudeModel: true,
+    recommendedModel: "sonnet",
+    modelGuidance: "Sonnet : analyse de données + insights, équilibre qualité/coût.",
     iconName: "TrendingUp",
   },
 

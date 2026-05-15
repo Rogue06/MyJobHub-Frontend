@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import * as Icons from "lucide-react";
-import { Loader2, Play, AlertTriangle, Info, X } from "lucide-react";
+import { Loader2, Play, AlertTriangle, Info, X, Lightbulb } from "lucide-react";
+import { CLAUDE_MODEL_OPTIONS } from "@/lib/claude-models";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -140,18 +141,28 @@ export function ActionCard({ action }: Props) {
           </div>
         ) : null}
 
-        <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
-          <Button size="sm" onClick={start} disabled={running}>
-            {running ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Play className="mr-2 h-3.5 w-3.5" />}
-            Lancer
-          </Button>
-          {action.usesClaudeModel ? (
-            <ModelPicker value={model} onChange={setModel} compact />
-          ) : null}
-          {open ? (
-            <Button size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={running} className="ml-auto">
-              <X className="h-3 w-3" />
+        <div className="mt-auto space-y-2 pt-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" onClick={start} disabled={running}>
+              {running ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Play className="mr-2 h-3.5 w-3.5" />}
+              Lancer
             </Button>
+            {action.usesClaudeModel ? (
+              <ModelPicker value={model} onChange={setModel} compact />
+            ) : null}
+            {open ? (
+              <Button size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={running} className="ml-auto">
+                <X className="h-3 w-3" />
+              </Button>
+            ) : null}
+          </div>
+          {action.usesClaudeModel && action.recommendedModel ? (
+            <ModelRecoLine
+              recommendedModel={action.recommendedModel}
+              currentModel={model}
+              guidance={action.modelGuidance}
+              onApply={() => setModel(action.recommendedModel as typeof model)}
+            />
           ) : null}
         </div>
 
@@ -165,5 +176,42 @@ export function ActionCard({ action }: Props) {
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+function ModelRecoLine({
+  recommendedModel,
+  currentModel,
+  guidance,
+  onApply,
+}: {
+  recommendedModel: "haiku" | "sonnet" | "opus";
+  currentModel: string;
+  guidance?: string;
+  onApply: () => void;
+}) {
+  const recoOption = CLAUDE_MODEL_OPTIONS.find((o) => o.id === recommendedModel);
+  if (!recoOption) return null;
+  const alreadyUsing = currentModel === recommendedModel;
+  return (
+    <div className="flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/5 px-2.5 py-1.5 text-[11px] leading-snug">
+      <Lightbulb className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+      <div className="flex-1">
+        <span className="text-muted-foreground">Recommandé : </span>
+        <span className="font-medium">{recoOption.label.replace(/\s*\(.*\)$/, "")}</span>
+        {guidance ? <span className="text-muted-foreground"> — {guidance}</span> : null}
+      </div>
+      {!alreadyUsing ? (
+        <button
+          type="button"
+          onClick={onApply}
+          className="shrink-0 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-800 hover:bg-amber-500/30 dark:text-amber-300"
+        >
+          Utiliser
+        </button>
+      ) : (
+        <span className="shrink-0 text-[10px] text-emerald-700 dark:text-emerald-400">✓ actif</span>
+      )}
+    </div>
   );
 }

@@ -53,6 +53,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
       const scanBin: string = scanMode === "fast" ? "npm" : "claude";
       const scanArgs: string[] = scanMode === "fast" ? ["run", "scan"] : buildClaudeArgs("/career-ops scan", model);
+      emit({
+        type: "info",
+        message: `Commande lancée : ${scanBin} ${scanArgs.map((a) => (a.startsWith("/") ? `"${a}"` : a)).join(" ")}`,
+      });
       const scanResult = await runCommand(scanBin, scanArgs, {
         cwd: careerOpsPath,
         onEvent: (e) => {
@@ -89,7 +93,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       message: "Chaque URL est évaluée selon ton profil. CV adaptés et lettres sont générés en parallèle.",
     });
 
-    const pipelineResult = await runCommand("claude", buildClaudeArgs("/career-ops pipeline", model), {
+    const pipelineArgs = buildClaudeArgs("/career-ops pipeline", model);
+    emit({
+      type: "info",
+      message: `Commande lancée : claude ${pipelineArgs.map((a) => (a.startsWith("/") ? `"${a}"` : a)).join(" ")}`,
+    });
+    const pipelineResult = await runCommand("claude", pipelineArgs, {
       cwd: careerOpsPath,
       onEvent: (e) => {
         if (e.type === "stdout") {

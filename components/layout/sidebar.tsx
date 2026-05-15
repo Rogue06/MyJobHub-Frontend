@@ -13,6 +13,7 @@ import {
   Users,
   Compass,
   Terminal,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/components/providers/workspace-provider";
@@ -32,6 +33,13 @@ const PRIMARY: NavItem[] = [
     href: "/evaluer",
     icon: Send,
     description: "Coller une URL ou un texte",
+    requiresWorkspace: true,
+  },
+  {
+    label: "Recherches en direct",
+    href: "/recherches",
+    icon: Search,
+    description: "Ouvrir mes recherches sur chaque site",
     requiresWorkspace: true,
   },
   {

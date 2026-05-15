@@ -18,7 +18,11 @@ MyJobHub est une application web locale qui rend [career-ops](https://github.com
 
 > **À propos de career-ops** — Tout le moteur (évaluation A-F, génération de CV PDF, scan des portails, pipeline d'évaluation, analyse de patterns) vient de [career-ops](https://github.com/santifer/career-ops), un projet open-source MIT créé par [Santiago Fernández](https://santifer.io). MyJobHub n'est que la couche d'interface graphique au-dessus.
 
-### Installation rapide (macOS, Linux, WSL)
+### Installation rapide
+
+Un script unique selon ton OS. Tout est automatisé : vérification de Node, install des dépendances, raccourci sur ton Bureau.
+
+#### 🍎 macOS
 
 ```bash
 git clone https://github.com/Rogue06/MyJobHub-Frontend.git
@@ -26,14 +30,44 @@ cd MyJobHub-Frontend
 ./scripts/setup.sh
 ```
 
-C'est tout. Le script :
+Crée un fichier `MyJobHub.command` sur ton Bureau. **Double-clic** dessus pour lancer.
+
+#### 🐧 Linux & WSL
+
+```bash
+git clone https://github.com/Rogue06/MyJobHub-Frontend.git
+cd MyJobHub-Frontend
+./scripts/setup.sh
+```
+
+Crée un fichier `myjobhub.sh` sur ton Bureau. **Double-clic** pour lancer (clic droit → Exécuter si demandé).
+
+#### 🪟 Windows
+
+Ouvre **PowerShell** (clic droit dans le dossier où tu veux installer → "Ouvrir dans le Terminal" ou Windows Terminal) :
+
+```powershell
+git clone https://github.com/Rogue06/MyJobHub-Frontend.git
+cd MyJobHub-Frontend
+.\scripts\setup.ps1
+```
+
+Crée un fichier `MyJobHub.bat` sur ton Bureau. **Double-clic** pour lancer.
+
+> Si PowerShell refuse d'exécuter le script ("Execution Policy"), lance d'abord :
+> ```powershell
+> Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+> ```
+> et réponds Y.
+
+#### Que fait le script (toutes plateformes)
+
 1. Vérifie que Node 18+ et Claude Code CLI sont installés (donne le lien d'install sinon)
 2. Lance `npm install` (1-2 min)
-3. **Sur macOS** : crée un fichier `MyJobHub.command` sur ton Bureau (double-clic = MyJobHub démarre + navigateur s'ouvre)
-4. **Sur Linux/WSL** : crée un `myjobhub.sh` sur ton Bureau
-5. Te propose d'ajouter un alias shell `myjobhub` (optionnel)
+3. Crée un raccourci sur ton Bureau adapté à ton OS
+4. Sur Unix uniquement : propose d'ajouter un alias shell `myjobhub` (optionnel)
 
-Une fois installé, **double-clic sur le raccourci du Bureau** = MyJobHub tourne sur [http://localhost:3000](http://localhost:3000).
+Une fois installé, **double-clic sur le raccourci du Bureau** → MyJobHub tourne sur [http://localhost:3000](http://localhost:3000).
 
 ### Prérequis
 
@@ -151,7 +185,11 @@ MyJobHub is a local web application that makes [career-ops](https://github.com/s
 
 > **About career-ops** — The entire engine (A-F evaluation, ATS-optimized PDF generation, portal scanning, pipeline, pattern analysis) comes from [career-ops](https://github.com/santifer/career-ops), an MIT open-source project by [Santiago Fernández](https://santifer.io). MyJobHub is only the graphical UI layer on top.
 
-### Quick install (macOS, Linux, WSL)
+### Quick install
+
+A single script per OS. Everything automated: Node check, dependencies, Desktop shortcut.
+
+#### 🍎 macOS
 
 ```bash
 git clone https://github.com/Rogue06/MyJobHub-Frontend.git
@@ -159,12 +197,34 @@ cd MyJobHub-Frontend
 ./scripts/setup.sh
 ```
 
-That's it. The script:
-1. Checks Node 18+ and Claude Code CLI are installed (gives install link otherwise)
-2. Runs `npm install` (1-2 min)
-3. **On macOS**: creates a `MyJobHub.command` shortcut on your Desktop (double-click = MyJobHub starts + browser opens)
-4. **On Linux/WSL**: creates a `myjobhub.sh` on your Desktop
-5. Offers to add a shell alias `myjobhub` (optional)
+Creates `MyJobHub.command` on your Desktop — double-click to launch.
+
+#### 🐧 Linux & WSL
+
+```bash
+git clone https://github.com/Rogue06/MyJobHub-Frontend.git
+cd MyJobHub-Frontend
+./scripts/setup.sh
+```
+
+Creates `myjobhub.sh` on your Desktop — double-click to launch.
+
+#### 🪟 Windows
+
+Open **PowerShell** in the install location:
+
+```powershell
+git clone https://github.com/Rogue06/MyJobHub-Frontend.git
+cd MyJobHub-Frontend
+.\scripts\setup.ps1
+```
+
+Creates `MyJobHub.bat` on your Desktop — double-click to launch.
+
+> If PowerShell blocks the script ("Execution Policy"), run first:
+> ```powershell
+> Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+> ```
 
 After install, **double-click the Desktop shortcut** → MyJobHub runs at [http://localhost:3000](http://localhost:3000). UI is in French.
 

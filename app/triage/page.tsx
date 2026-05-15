@@ -91,6 +91,7 @@ export default function TriagePage() {
   const [scanLogs, setScanLogs] = React.useState<LogEvent[]>([]);
   const [scanFinished, setScanFinished] = React.useState(false);
   const [scanModel, setScanModel] = useModelPreference("myjobhub-model-scan");
+  const [confirmMode, setConfirmMode] = React.useState<ScanMode | null>(null);
 
   const load = React.useCallback(async () => {
     if (!activeWorkspace) return;
@@ -284,6 +285,34 @@ export default function TriagePage() {
   const pending = data?.pipeline.filter((p) => p.status === "pending") ?? [];
   const rejections = data?.feedback.rejections ?? [];
 
+  const confirmConfig = (() => {
+    if (confirmMode === "auto") {
+      return {
+        title: "Lancer le workflow automatique ?",
+        description:
+          "Claude va d'abord scanner tous les portails que tu as activés, puis évaluer chaque offre trouvée selon ton profil. Durée typique : 20 à 30 min, en arrière-plan.",
+        warnings: [
+          `Consomme tes crédits Claude (modèle : ${scanModel}). Choisis Haiku si tu veux économiser.`,
+          "Garde l'onglet ouvert pendant l'exécution. Tu peux continuer à naviguer dans MyJobHub.",
+        ],
+        cta: "C'est parti, je lance",
+      };
+    }
+    if (confirmMode === "agent") {
+      return {
+        title: "Lancer le scan complet IA ?",
+        description:
+          "Claude visite tous les portails activés via Playwright et WebSearch pour récupérer les nouvelles annonces. 5 à 10 min selon le nombre de portails. Aucune évaluation à cette étape.",
+        warnings: [
+          `Consomme tes crédits Claude (modèle : ${scanModel}). Tu peux lancer ensuite l'évaluation manuellement.`,
+          "Pour scanner + évaluer en un seul coup, utilise plutôt « Tout automatiser ».",
+        ],
+        cta: "Lancer le scan",
+      };
+    }
+    return null;
+  })();
+
   return (
     <PageShell
       title="Triage des annonces"
@@ -321,7 +350,7 @@ export default function TriagePage() {
               <CardContent className="space-y-3">
                 <div className="flex flex-wrap items-end gap-3">
                   <Button
-                    onClick={() => void scan("auto")}
+                    onClick={() => setConfirmMode("auto")}
                     disabled={!!scanRunning}
                     variant="default"
                     className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600"
@@ -341,7 +370,7 @@ export default function TriagePage() {
                     )}
                     Scan rapide seul
                   </Button>
-                  <Button onClick={() => void scan("agent")} disabled={!!scanRunning} variant="outline">
+                  <Button onClick={() => setConfirmMode("agent")} disabled={!!scanRunning} variant="outline">
                     {scanRunning === "agent" ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
@@ -553,6 +582,50 @@ export default function TriagePage() {
           </TabsContent>
         </Tabs>
       )}
+
+      <Dialog open={confirmMode !== null} onOpenChange={(o) => !o && setConfirmMode(null)}>
+        <DialogContent className="sm:max-w-md">
+          {confirmConfig ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  {confirmMode === "auto" ? (
+                    <Wand2 className="h-5 w-5 text-indigo-500" />
+                  ) : (
+                    <Sparkles className="h-5 w-5 text-amber-500" />
+                  )}
+                  {confirmConfig.title}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3 py-2">
+                <p className="text-sm text-muted-foreground">{confirmConfig.description}</p>
+                <ul className="space-y-1.5 rounded-md border bg-muted/30 p-3">
+                  {confirmConfig.warnings.map((w, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs">
+                      <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+                      <span>{w}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <DialogFooter className="gap-2">
+                <Button variant="ghost" onClick={() => setConfirmMode(null)}>
+                  Annuler
+                </Button>
+                <Button
+                  onClick={() => {
+                    const m = confirmMode;
+                    setConfirmMode(null);
+                    if (m) void scan(m);
+                  }}
+                >
+                  {confirmConfig.cta}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </PageShell>
   );
 }

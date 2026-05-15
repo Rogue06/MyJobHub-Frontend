@@ -36,15 +36,20 @@ async function pathExists(p: string): Promise<boolean> {
   }
 }
 
-async function countFilesInDir(dirPath: string): Promise<number> {
+async function countFilesInDir(dirPath: string, extensions?: string[]): Promise<number> {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
     let count = 0;
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        count += await countFilesInDir(path.join(dirPath, entry.name));
+        count += await countFilesInDir(path.join(dirPath, entry.name), extensions);
       } else if (!entry.name.startsWith(".")) {
-        count++;
+        if (!extensions) {
+          count++;
+        } else {
+          const ext = path.extname(entry.name).toLowerCase();
+          if (extensions.includes(ext)) count++;
+        }
       }
     }
     return count;
@@ -71,8 +76,8 @@ export async function buildDashboardStats(workspace: Workspace): Promise<Dashboa
     readApplications(workspace).catch(() => null),
     readPipeline(workspace).catch(() => []),
     readFeedback(workspace).catch(() => ({ rejections: [], approvals: [] })),
-    countFilesInDir(path.join(careerOpsPath, "output")),
-    countFilesInDir(path.join(careerOpsPath, "reports")),
+    countFilesInDir(path.join(careerOpsPath, "output"), [".pdf", ".docx", ".html", ".tex"]),
+    countFilesInDir(path.join(careerOpsPath, "reports"), [".md"]),
     getLastScanAt(careerOpsPath),
   ]);
 

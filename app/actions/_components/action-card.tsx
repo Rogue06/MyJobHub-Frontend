@@ -146,9 +146,7 @@ export function ActionCard({ action }: Props) {
             Lancer
           </Button>
           {action.usesClaudeModel ? (
-            <Tooltip content="Choisis le modèle Claude utilisé pour cette commande. Opus est le plus puissant mais consomme plus, Haiku est rapide et économique.">
-              <ModelPicker value={model} onChange={setModel} compact />
-            </Tooltip>
+            <ModelPicker value={model} onChange={setModel} compact />
           ) : null}
           {open ? (
             <Button size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={running} className="ml-auto">

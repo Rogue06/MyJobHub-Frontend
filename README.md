@@ -12,6 +12,28 @@
 
 ---
 
+## Aperçu / Preview
+
+### Tableau de bord — Dashboard
+
+![Tableau de bord avec stats, recommandations et accès rapide](docs/screenshots/01-dashboard.png)
+
+### Module Actions — toutes les commandes career-ops regroupées par usage
+
+![Page Actions avec les groupes d'usage colorés](docs/screenshots/04-actions.png)
+
+### Triage des annonces — scan et évaluation en un clic
+
+![Module Triage avec scan automatique](docs/screenshots/03-triage-scan.png)
+
+### Wizard d'onboarding — import PDF et configuration guidée
+
+![Wizard de création de profil](docs/screenshots/02-wizard.png)
+
+> Les captures sont stockées dans [`docs/screenshots/`](docs/screenshots/). Voir le [guide de capture](docs/screenshots/README.md) pour contribuer.
+
+---
+
 ## Français
 
 MyJobHub est une application web locale qui rend [career-ops](https://github.com/santifer/career-ops) accessible à toute personne en recherche d'emploi, sans avoir à manipuler de fichiers YAML ni à mémoriser de slash commands. Tu importes ton CV PDF, MyJobHub configure tout, et tu lances l'évaluation IA de toutes tes offres en un clic.

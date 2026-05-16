@@ -16,19 +16,25 @@
 
 ### Tableau de bord — Dashboard
 
-![Tableau de bord avec stats, recommandations et accès rapide](docs/screenshots/01-dashboard.png)
+Bannière personnalisée selon l'heure, prochaines actions recommandées en fonction de l'état du profil, statistiques en direct.
 
-### Module Actions — toutes les commandes career-ops regroupées par usage
+![Tableau de bord avec bannière, recommandations et statistiques](docs/screenshots/01-dashboard-top.png)
 
-![Page Actions avec les groupes d'usage colorés](docs/screenshots/04-actions.png)
+Accès rapide aux modules principaux et astuce du jour pour booster ta recherche.
 
-### Triage des annonces — scan et évaluation en un clic
+![Accès rapide aux modules et astuce du jour](docs/screenshots/02-dashboard-quick-actions.png)
 
-![Module Triage avec scan automatique](docs/screenshots/03-triage-scan.png)
+### Autres modules
 
-### Wizard d'onboarding — import PDF et configuration guidée
-
-![Wizard de création de profil](docs/screenshots/02-wizard.png)
+| Module | Capture |
+|--------|---------|
+| Triage avec scan + évaluation auto | [`03-triage-scan.png`](docs/screenshots/03-triage-scan.png) |
+| Actions regroupées par usage | [`04-actions.png`](docs/screenshots/04-actions.png) |
+| Wizard d'onboarding (import PDF) | [`05-wizard.png`](docs/screenshots/05-wizard.png) |
+| Évaluation d'une offre + logs live | [`06-evaluer.png`](docs/screenshots/06-evaluer.png) |
+| Suivi des candidatures | [`07-candidatures.png`](docs/screenshots/07-candidatures.png) |
+| Filtre apprenant | [`08-triage-rejets.png`](docs/screenshots/08-triage-rejets.png) |
+| Recherches en direct | [`09-recherches.png`](docs/screenshots/09-recherches.png) |
 
 > Les captures sont stockées dans [`docs/screenshots/`](docs/screenshots/). Voir le [guide de capture](docs/screenshots/README.md) pour contribuer.
 

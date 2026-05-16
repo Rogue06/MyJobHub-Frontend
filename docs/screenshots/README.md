@@ -8,15 +8,17 @@ Le README charge ces fichiers dans l'ordre :
 
 | Fichier | Page | Ce qu'on doit y voir |
 |---------|------|----------------------|
-| `01-dashboard.png` | `/` (Tableau de bord) | Bannière d'accueil + stats + recommandations + accès rapide |
-| `02-wizard.png` | `/profils/nouveau` | Wizard d'onboarding (idéalement étape 1 ou 3 avec import PDF) |
+| `01-dashboard-top.png` ⭐ | `/` (Tableau de bord) | Bannière d'accueil + recommandations + statistiques |
+| `02-dashboard-quick-actions.png` ⭐ | `/` (Tableau de bord, plus bas) | Section « Accès rapide » + astuce du jour |
 | `03-triage-scan.png` | `/triage` (onglet Inbox) | Carte « Scanner les sites » + 3 boutons + sélecteur de modèle |
 | `04-actions.png` | `/actions` | Vue d'ensemble avec les groupes d'usage colorés et le bouton « Utiliser les recos » |
-| `05-evaluer.png` | `/evaluer` | Formulaire d'évaluation + logs streaming pendant une exécution |
-| `06-candidatures.png` | `/candidatures` | Tableau des candidatures avec scores, statuts, filtres |
-| `07-triage-rejets.png` | `/triage` (onglet « Affiner les filtres ») | Module filtre apprenant en action |
-| `08-recherches.png` | `/recherches` | Page Recherches en direct avec URLs pré-remplies |
-| `09-model-picker.png` | n'importe où, menu ouvert | Sélecteur de modèle avec le badge « Recommandé » mis en avant |
+| `05-wizard.png` | `/profils/nouveau` | Wizard d'onboarding (idéalement étape 1 ou 3 avec import PDF) |
+| `06-evaluer.png` | `/evaluer` | Formulaire d'évaluation + logs streaming pendant une exécution |
+| `07-candidatures.png` | `/candidatures` | Tableau des candidatures avec scores, statuts, filtres |
+| `08-triage-rejets.png` | `/triage` (onglet « Affiner les filtres ») | Module filtre apprenant en action |
+| `09-recherches.png` | `/recherches` | Page Recherches en direct avec URLs pré-remplies |
+
+Les deux marquées ⭐ apparaissent en grand dans le README principal. Les autres sont liées en lien-texte (mais peuvent aussi devenir des `![]()` plus tard).
 
 ## Comment prendre les captures (macOS)
 

@@ -64,7 +64,7 @@ interface TriageData {
   feedback: { rejections: FeedbackEntry[]; approvals: { id: string; url: string; createdAt: string }[] };
 }
 
-type ScanMode = "fast" | "agent" | "auto";
+type ScanMode = "fast" | "agent" | "auto" | "auto-light";
 
 interface ProposalChange {
   field: string;
@@ -121,11 +121,17 @@ export default function TriagePage() {
     setScanFinished(false);
     setScanLogs([]);
     try {
-      const endpoint =
-        mode === "auto"
-          ? `/api/workspaces/${activeWorkspace.id}/auto-pipeline`
-          : `/api/workspaces/${activeWorkspace.id}/scan`;
-      const body = mode === "auto" ? { scanMode: "agent", model: scanModel } : { mode, model: scanModel };
+      const isAuto = mode === "auto" || mode === "auto-light";
+      const endpoint = isAuto
+        ? `/api/workspaces/${activeWorkspace.id}/auto-pipeline`
+        : `/api/workspaces/${activeWorkspace.id}/scan`;
+      const body = isAuto
+        ? {
+            scanMode: "agent",
+            evalMode: mode === "auto-light" ? "light" : "complete",
+            model: scanModel,
+          }
+        : { mode, model: scanModel };
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -310,6 +316,18 @@ export default function TriagePage() {
         cta: "Lancer le scan",
       };
     }
+    if (confirmMode === "auto-light") {
+      return {
+        title: "Scan + évaluation rapide (économique) ?",
+        description:
+          "Claude scanne tes portails puis fait une évaluation LÉGÈRE de chaque offre : score + résumé de 2-3 phrases + recommandation. Aucun rapport détaillé, aucun CV adapté, aucune lettre. Compte 10-15 min total et consomme ~3-5× moins de tokens que « Tout automatiser ».",
+        warnings: [
+          `Idéal quand tu veux pré-filtrer beaucoup d'offres sans cramer ta limite Claude. Modèle utilisé : ${scanModel} (Haiku encore plus économique).`,
+          "Une fois les évaluations rapides faites, tu pourras lancer le pipeline complet (`/career-ops <URL>` depuis Actions) seulement sur les offres qui t'intéressent.",
+        ],
+        cta: "Lancer l'éval rapide",
+      };
+    }
     return null;
   })();
 
@@ -350,17 +368,30 @@ export default function TriagePage() {
               <CardContent className="space-y-3">
                 <div className="flex flex-wrap items-end gap-3">
                   <Button
-                    onClick={() => setConfirmMode("auto")}
+                    onClick={() => setConfirmMode("auto-light")}
                     disabled={!!scanRunning}
                     variant="default"
-                    className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600"
+                    className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600"
+                  >
+                    {scanRunning === "auto-light" ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Zap className="mr-2 h-4 w-4" />
+                    )}
+                    Scan + Éval rapide (économique)
+                  </Button>
+                  <Button
+                    onClick={() => setConfirmMode("auto")}
+                    disabled={!!scanRunning}
+                    variant="outline"
+                    className="border-indigo-500/40"
                   >
                     {scanRunning === "auto" ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
-                      <Wand2 className="mr-2 h-4 w-4" />
+                      <Wand2 className="mr-2 h-4 w-4 text-indigo-500" />
                     )}
-                    Tout automatiser (scan + évaluation)
+                    Tout automatiser (complet, coûteux)
                   </Button>
                   <Button onClick={() => void scan("fast")} disabled={!!scanRunning} variant="outline">
                     {scanRunning === "fast" ? (
@@ -382,7 +413,10 @@ export default function TriagePage() {
                 </div>
                 <ul className="space-y-1 text-xs text-muted-foreground">
                   <li>
-                    🪄 <strong className="text-foreground">Tout automatiser</strong> — scan + évaluation en 20-30 min, rien à faire à la main.
+                    🌱 <strong className="text-foreground">Scan + Éval rapide</strong> — recommandé au quotidien : score + résumé court par offre, ~3-5× moins de tokens. Tu lances ensuite le pipeline complet seulement sur les offres qui t'intéressent.
+                  </li>
+                  <li>
+                    🪄 <strong>Tout automatiser (complet)</strong> — scan + évaluation détaillée + CV adaptés + lettres pour CHAQUE offre (20-30 min, gros consommateur de tokens).
                   </li>
                   <li>
                     ⚡ <strong>Scan rapide</strong> — APIs publiques uniquement, instantané, sans Claude.
@@ -402,8 +436,10 @@ export default function TriagePage() {
                         : scanRunning === "agent"
                           ? "Scan complet par Claude en cours…"
                           : scanRunning === "auto"
-                            ? "Workflow automatique en cours (scan + évaluation)…"
-                            : "Scan"
+                            ? "Workflow automatique complet en cours (scan + évaluation)…"
+                            : scanRunning === "auto-light"
+                              ? "Scan + évaluation rapide (économique) en cours…"
+                              : "Scan"
                     }
                   />
                 ) : null}

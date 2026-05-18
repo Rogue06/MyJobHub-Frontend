@@ -585,81 +585,14 @@ export default function TriagePage() {
                   const selected = selectedUrls.has(p.url);
                   const details = processedDetails[p.url];
                   return (
-                    <Card
+                    <ProcessedCard
                       key={`${p.url}-${i}`}
-                      className={cn(
-                        "transition-colors",
-                        selected ? "border-emerald-500 bg-emerald-500/5" : "hover:bg-accent/20"
-                      )}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <Checkbox
-                            checked={selected}
-                            onCheckedChange={() => toggleSelect(p.url)}
-                            className="mt-1 shrink-0"
-                            aria-label={`Sélectionner ${p.company ?? "cette offre"}`}
-                          />
-                          <div className="min-w-0 flex-1 space-y-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              {p.score ? (
-                                <Badge
-                                  variant="outline"
-                                  className={cn(
-                                    "font-mono",
-                                    parseFloat(p.score) >= 4
-                                      ? "border-emerald-500 text-emerald-700 dark:text-emerald-300"
-                                      : parseFloat(p.score) >= 3
-                                        ? "border-blue-500 text-blue-700 dark:text-blue-300"
-                                        : "border-red-500 text-red-700 dark:text-red-300"
-                                  )}
-                                >
-                                  {p.score}
-                                </Badge>
-                              ) : null}
-                              {p.company ? <span className="text-sm font-semibold">{p.company}</span> : null}
-                              {p.role ? <span className="text-xs text-muted-foreground">— {p.role}</span> : null}
-                            </div>
-
-                            {details?.tldr ? (
-                              <p className="text-xs leading-relaxed text-foreground/80">{details.tldr}</p>
-                            ) : (
-                              <p className="text-xs italic text-muted-foreground">
-                                Pas de résumé disponible (le rapport détaillé n'a peut-être pas été généré).
-                              </p>
-                            )}
-
-                            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                              {details?.contract ? (
-                                <Badge variant="secondary" className="font-normal">
-                                  {details.contract}
-                                </Badge>
-                              ) : null}
-                              {details?.location ? (
-                                <Badge variant="secondary" className="font-normal">
-                                  📍 {details.location}
-                                </Badge>
-                              ) : null}
-                              {details?.salary ? (
-                                <Badge variant="secondary" className="font-normal">
-                                  💰 {details.salary}
-                                </Badge>
-                              ) : null}
-                            </div>
-
-                            <a
-                              href={p.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                              Voir l'annonce complète
-                            </a>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                      entry={p}
+                      details={details}
+                      selected={selected}
+                      onToggleSelect={() => toggleSelect(p.url)}
+                      onReject={reject}
+                    />
                   );
                 })}
 
@@ -921,6 +854,169 @@ export default function TriagePage() {
         </DialogContent>
       </Dialog>
     </PageShell>
+  );
+}
+
+function ProcessedCard({
+  entry,
+  details,
+  selected,
+  onToggleSelect,
+  onReject,
+}: {
+  entry: PipelineEntry;
+  details: ProcessedDetail | undefined;
+  selected: boolean;
+  onToggleSelect: () => void;
+  onReject: (url: string, reason: RejectionReason, note: string, company?: string) => void;
+}) {
+  const [rejectOpen, setRejectOpen] = React.useState(false);
+  const [reason, setReason] = React.useState<RejectionReason>("mauvais-metier");
+  const [note, setNote] = React.useState("");
+
+  return (
+    <>
+      <Card
+        className={cn(
+          "transition-colors",
+          selected ? "border-emerald-500 bg-emerald-500/5" : "hover:bg-accent/20"
+        )}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <Checkbox
+              checked={selected}
+              onCheckedChange={onToggleSelect}
+              className="mt-1 shrink-0"
+              aria-label={`Sélectionner ${entry.company ?? "cette offre"}`}
+            />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {entry.score ? (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "font-mono",
+                      parseFloat(entry.score) >= 4
+                        ? "border-emerald-500 text-emerald-700 dark:text-emerald-300"
+                        : parseFloat(entry.score) >= 3
+                          ? "border-blue-500 text-blue-700 dark:text-blue-300"
+                          : "border-red-500 text-red-700 dark:text-red-300"
+                    )}
+                  >
+                    {entry.score}
+                  </Badge>
+                ) : null}
+                {entry.company ? <span className="text-sm font-semibold">{entry.company}</span> : null}
+                {entry.role ? <span className="text-xs text-muted-foreground">— {entry.role}</span> : null}
+              </div>
+
+              {details?.tldr ? (
+                <p className="text-xs leading-relaxed text-foreground/80">{details.tldr}</p>
+              ) : (
+                <p className="text-xs italic text-muted-foreground">
+                  Pas de résumé disponible (le rapport détaillé n'a peut-être pas été généré).
+                </p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                {details?.contract ? (
+                  <Badge variant="secondary" className="font-normal">
+                    {details.contract}
+                  </Badge>
+                ) : null}
+                {details?.location ? (
+                  <Badge variant="secondary" className="font-normal">
+                    📍 {details.location}
+                  </Badge>
+                ) : null}
+                {details?.salary ? (
+                  <Badge variant="secondary" className="font-normal">
+                    💰 {details.salary}
+                  </Badge>
+                ) : null}
+              </div>
+
+              <div className="flex items-center gap-3 pt-1 text-xs">
+                <a
+                  href={entry.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  Voir l'annonce complète
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setRejectOpen(true)}
+                  className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 hover:underline dark:text-red-400"
+                >
+                  <X className="h-3 w-3" />
+                  Pas pour moi
+                </button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pourquoi rejettes-tu cette offre ?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-xs text-muted-foreground">
+              Ce rejet aide l'IA à filtrer les prochains scans. Cumulés, plusieurs rejets permettent à Claude
+              de proposer de nouvelles règles dans <code>portals.yml</code> via « Affiner les filtres ».
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {REJECTION_REASONS.map((r) => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setReason(r.id)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-sm transition-colors",
+                    reason === r.id
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-background hover:bg-accent"
+                  )}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="rej-note-proc" className="text-xs">
+                Note (optionnelle)
+              </Label>
+              <Textarea
+                id="rej-note-proc"
+                rows={3}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Ex. « commercial pur agressif, j'ai déjà donné »"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRejectOpen(false)}>
+              Annuler
+            </Button>
+            <Button
+              onClick={() => {
+                onReject(entry.url, reason, note, entry.company);
+                setRejectOpen(false);
+              }}
+            >
+              Enregistrer le rejet
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

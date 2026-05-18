@@ -7,8 +7,8 @@ import {
   removeRejection,
   addApproval,
   appendPendingUrl,
-  RejectionReason,
 } from "@/lib/triage";
+import { RejectionReason, LikedAspect } from "@/lib/triage-types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -35,7 +35,10 @@ interface PostBody {
   url?: string;
   title?: string;
   company?: string;
+  /** @deprecated — use `reasons` */
   reason?: RejectionReason;
+  reasons?: RejectionReason[];
+  liked?: LikedAspect[];
   note?: string;
 }
 
@@ -59,14 +62,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
 
     if (body.action === "reject") {
-      if (!body.url || !body.reason) {
-        return NextResponse.json({ error: "URL et raison requises" }, { status: 400 });
+      const reasons = body.reasons && body.reasons.length > 0
+        ? body.reasons
+        : body.reason
+          ? [body.reason]
+          : [];
+      if (!body.url || reasons.length === 0) {
+        return NextResponse.json({ error: "URL et au moins une raison requises" }, { status: 400 });
       }
       const entry = await addRejection(ws, {
         url: body.url,
         title: body.title,
         company: body.company,
-        reason: body.reason,
+        reasons,
+        liked: body.liked ?? [],
         note: body.note,
       });
       return NextResponse.json({ entry });

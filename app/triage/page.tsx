@@ -39,7 +39,7 @@ import { ScanProgress } from "@/components/scan-progress";
 import { ModelPicker, useModelPreference } from "@/components/forms/model-picker";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useWorkspace } from "@/components/providers/workspace-provider";
-import { REJECTION_REASONS, RejectionReason } from "@/lib/triage-types";
+import { REJECTION_REASONS, LIKED_ASPECTS, RejectionReason, LikedAspect, getEntryReasons } from "@/lib/triage-types";
 import { cn } from "@/lib/utils";
 
 interface PipelineEntry {
@@ -58,7 +58,10 @@ interface FeedbackEntry {
   url: string;
   title?: string;
   company?: string;
-  reason: RejectionReason;
+  /** @deprecated — backward compat */
+  reason?: RejectionReason;
+  reasons?: RejectionReason[];
+  liked?: LikedAspect[];
   note?: string;
 }
 
@@ -249,13 +252,19 @@ export default function TriagePage() {
     }
   };
 
-  const reject = async (url: string, reason: RejectionReason, note: string, company?: string) => {
+  const reject = async (
+    url: string,
+    reasons: RejectionReason[],
+    liked: LikedAspect[],
+    note: string,
+    company?: string
+  ) => {
     if (!activeWorkspace) return;
     try {
       const res = await fetch(`/api/workspaces/${activeWorkspace.id}/triage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reject", url, reason, note, company }),
+        body: JSON.stringify({ action: "reject", url, reasons, liked, note, company }),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -649,28 +658,52 @@ export default function TriagePage() {
                 description="Rejette des offres depuis l'onglet Inbox, elles s'accumuleront ici pour aider l'IA à affiner tes filtres."
               />
             ) : (
-              rejections.map((r) => (
-                <Card key={r.id}>
-                  <CardContent className="flex items-center justify-between gap-3 p-4">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="destructive">
-                          {REJECTION_REASONS.find((x) => x.id === r.reason)?.label ?? r.reason}
-                        </Badge>
-                        {r.company ? <span className="text-sm font-medium">{r.company}</span> : null}
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(r.createdAt).toLocaleDateString("fr-FR")}
-                        </span>
+              rejections.map((r) => {
+                const reasonsList = getEntryReasons(r);
+                const likedList = r.liked ?? [];
+                return (
+                  <Card key={r.id}>
+                    <CardContent className="flex items-start justify-between gap-3 p-4">
+                      <div className="min-w-0 flex-1 space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {r.company ? <span className="text-sm font-medium">{r.company}</span> : null}
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(r.createdAt).toLocaleDateString("fr-FR")}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {reasonsList.map((id) => (
+                            <Badge key={id} variant="destructive" className="text-[10px] font-normal">
+                              ✗ {REJECTION_REASONS.find((x) => x.id === id)?.label ?? id}
+                            </Badge>
+                          ))}
+                          {likedList.map((id) => (
+                            <Badge
+                              key={id}
+                              className="bg-emerald-600 text-[10px] font-normal text-white hover:bg-emerald-700"
+                            >
+                              ✓ {LIKED_ASPECTS.find((x) => x.id === id)?.label ?? id}
+                            </Badge>
+                          ))}
+                        </div>
+                        <a
+                          href={r.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 truncate text-[10px] text-muted-foreground hover:underline"
+                        >
+                          <ExternalLink className="h-2.5 w-2.5" />
+                          <span className="truncate">{r.url}</span>
+                        </a>
+                        {r.note ? <p className="text-xs italic text-foreground/70">« {r.note} »</p> : null}
                       </div>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">{r.url}</p>
-                      {r.note ? <p className="mt-1 text-xs italic">« {r.note} »</p> : null}
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={() => removeRejection(r.id)}>
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))
+                      <Button variant="ghost" size="sm" onClick={() => removeRejection(r.id)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })
             )}
           </TabsContent>
 
@@ -868,11 +901,34 @@ function ProcessedCard({
   details: ProcessedDetail | undefined;
   selected: boolean;
   onToggleSelect: () => void;
-  onReject: (url: string, reason: RejectionReason, note: string, company?: string) => void;
+  onReject: (url: string, reasons: RejectionReason[], liked: LikedAspect[], note: string, company?: string) => void;
 }) {
   const [rejectOpen, setRejectOpen] = React.useState(false);
-  const [reason, setReason] = React.useState<RejectionReason>("mauvais-metier");
+  const [reasons, setReasons] = React.useState<Set<RejectionReason>>(new Set());
+  const [liked, setLiked] = React.useState<Set<LikedAspect>>(new Set());
   const [note, setNote] = React.useState("");
+
+  const toggleReason = (r: RejectionReason) => {
+    setReasons((prev) => {
+      const next = new Set(prev);
+      if (next.has(r)) next.delete(r);
+      else next.add(r);
+      return next;
+    });
+  };
+  const toggleLiked = (l: LikedAspect) => {
+    setLiked((prev) => {
+      const next = new Set(prev);
+      if (next.has(l)) next.delete(l);
+      else next.add(l);
+      return next;
+    });
+  };
+  const resetForm = () => {
+    setReasons(new Set());
+    setLiked(new Set());
+    setNote("");
+  };
 
   return (
     <>
@@ -961,43 +1017,88 @@ function ProcessedCard({
         </CardContent>
       </Card>
 
-      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog
+        open={rejectOpen}
+        onOpenChange={(o) => {
+          setRejectOpen(o);
+          if (!o) resetForm();
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Pourquoi rejettes-tu cette offre ?</DialogTitle>
+            <DialogTitle>Pas pour moi : pourquoi exactement ?</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-2">
+          <div className="space-y-4 py-2">
             <p className="text-xs text-muted-foreground">
-              Ce rejet aide l'IA à filtrer les prochains scans. Cumulés, plusieurs rejets permettent à Claude
-              de proposer de nouvelles règles dans <code>portals.yml</code> via « Affiner les filtres ».
+              Plus tu es précis, mieux l'IA apprend. Coche <strong>tout ce qui ne va pas</strong> ET, à
+              droite, <strong>ce qui te plaisait quand même</strong>. Claude utilisera ces nuances pour
+              proposer des offres « comme ça mais sans les défauts » au prochain scan.
             </p>
-            <div className="flex flex-wrap gap-2">
-              {REJECTION_REASONS.map((r) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  onClick={() => setReason(r.id)}
-                  className={cn(
-                    "rounded-full border px-3 py-1.5 text-sm transition-colors",
-                    reason === r.id
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-background hover:bg-accent"
-                  )}
-                >
-                  {r.label}
-                </button>
-              ))}
+
+            <div>
+              <Label className="mb-2 block text-xs font-medium">
+                <X className="mr-1 inline h-3 w-3 text-red-600" />
+                Ce qui ne me convient pas <span className="text-destructive">*</span>
+              </Label>
+              <div className="flex flex-wrap gap-1.5">
+                {REJECTION_REASONS.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => toggleReason(r.id)}
+                    title={r.description}
+                    className={cn(
+                      "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                      reasons.has(r.id)
+                        ? "border-red-600 bg-red-600 text-white"
+                        : "border-border bg-background hover:bg-accent"
+                    )}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            <div>
+              <Label className="mb-2 block text-xs font-medium">
+                <Check className="mr-1 inline h-3 w-3 text-emerald-600" />
+                Ce qui me plaisait quand même <span className="text-muted-foreground">(optionnel)</span>
+              </Label>
+              <div className="flex flex-wrap gap-1.5">
+                {LIKED_ASPECTS.map((l) => (
+                  <button
+                    key={l.id}
+                    type="button"
+                    onClick={() => toggleLiked(l.id)}
+                    title={l.description}
+                    className={cn(
+                      "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                      liked.has(l.id)
+                        ? "border-emerald-600 bg-emerald-600 text-white"
+                        : "border-border bg-background hover:bg-accent"
+                    )}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[10px] text-muted-foreground">
+                Exemple Linkeo : ✓ Secteur digital, Package matériel, Formation, Salaire — ✗ Ton chasseur, Trop de pression
+              </p>
+            </div>
+
             <div className="space-y-1.5">
               <Label htmlFor="rej-note-proc" className="text-xs">
-                Note (optionnelle)
+                Note libre (optionnel — pour préciser)
               </Label>
               <Textarea
                 id="rej-note-proc"
                 rows={3}
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Ex. « commercial pur agressif, j'ai déjà donné »"
+                placeholder="Ex. « j'aime le secteur ESN mais je veux du conseil, pas de la chasse en B2B »"
+                className="text-xs"
               />
             </div>
           </div>
@@ -1006,12 +1107,14 @@ function ProcessedCard({
               Annuler
             </Button>
             <Button
+              disabled={reasons.size === 0}
               onClick={() => {
-                onReject(entry.url, reason, note, entry.company);
+                onReject(entry.url, Array.from(reasons), Array.from(liked), note, entry.company);
                 setRejectOpen(false);
+                resetForm();
               }}
             >
-              Enregistrer le rejet
+              Enregistrer le rejet ({reasons.size})
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1027,11 +1130,19 @@ function PendingCard({
 }: {
   entry: PipelineEntry;
   onApprove: (url: string) => void;
-  onReject: (url: string, reason: RejectionReason, note: string, company?: string) => void;
+  onReject: (url: string, reasons: RejectionReason[], liked: LikedAspect[], note: string, company?: string) => void;
 }) {
   const [open, setOpen] = React.useState(false);
-  const [reason, setReason] = React.useState<RejectionReason>("mauvais-metier");
+  const [reasons, setReasons] = React.useState<Set<RejectionReason>>(new Set());
   const [note, setNote] = React.useState("");
+  const toggleR = (r: RejectionReason) => {
+    setReasons((prev) => {
+      const next = new Set(prev);
+      if (next.has(r)) next.delete(r);
+      else next.add(r);
+      return next;
+    });
+  };
 
   return (
     <Card>
@@ -1066,16 +1177,20 @@ function PendingCard({
                 <DialogTitle>Pourquoi rejettes-tu cette offre ?</DialogTitle>
               </DialogHeader>
               <div className="space-y-3 py-2">
-                <div className="flex flex-wrap gap-2">
+                <p className="text-xs text-muted-foreground">
+                  Coche toutes les raisons applicables (multi-sélection).
+                </p>
+                <div className="flex flex-wrap gap-1.5">
                   {REJECTION_REASONS.map((r) => (
                     <button
                       key={r.id}
                       type="button"
-                      onClick={() => setReason(r.id)}
+                      onClick={() => toggleR(r.id)}
+                      title={r.description}
                       className={cn(
-                        "rounded-full border px-3 py-1.5 text-sm transition-colors",
-                        reason === r.id
-                          ? "border-primary bg-primary text-primary-foreground"
+                        "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                        reasons.has(r.id)
+                          ? "border-red-600 bg-red-600 text-white"
                           : "border-border bg-background hover:bg-accent"
                       )}
                     >
@@ -1101,12 +1216,15 @@ function PendingCard({
                   Annuler
                 </Button>
                 <Button
+                  disabled={reasons.size === 0}
                   onClick={() => {
-                    onReject(entry.url, reason, note, entry.company);
+                    onReject(entry.url, Array.from(reasons), [], note, entry.company);
                     setOpen(false);
+                    setReasons(new Set());
+                    setNote("");
                   }}
                 >
-                  Enregistrer le rejet
+                  Enregistrer le rejet ({reasons.size})
                 </Button>
               </DialogFooter>
             </DialogContent>

@@ -942,8 +942,8 @@ function ProcessedCard({
   isRejected: boolean;
   rejection: FeedbackEntry | undefined;
   onToggleSelect: () => void;
-  onReject: (url: string, reasons: RejectionReason[], liked: LikedAspect[], note: string, company?: string) => void;
-  onUndoReject: () => void;
+  onReject: (url: string, reasons: RejectionReason[], liked: LikedAspect[], note: string, company?: string) => Promise<void> | void;
+  onUndoReject: () => Promise<void> | void;
 }) {
   const [rejectOpen, setRejectOpen] = React.useState(false);
   const [reasons, setReasons] = React.useState<Set<RejectionReason>>(new Set());
@@ -975,13 +975,35 @@ function ProcessedCard({
   const rejectionReasons = rejection ? getEntryReasons(rejection) : [];
   const rejectionLiked = rejection?.liked ?? [];
 
+  // Quand on ouvre le dialog en mode édition (rejet existant), on pré-remplit
+  // les chips et la note avec les valeurs actuelles pour que l'utilisateur
+  // puisse les ajuster plutôt que de tout ressaisir.
+  const openForEdit = () => {
+    if (rejection) {
+      setReasons(new Set(getEntryReasons(rejection)));
+      setLiked(new Set(rejection.liked ?? []));
+      setNote(rejection.note ?? "");
+    }
+    setRejectOpen(true);
+  };
+
+  const handleSave = async () => {
+    // En mode édition : supprime l'ancien rejet avant d'en créer un nouveau,
+    // sinon on aurait deux entrées pour la même URL. On await la suppression
+    // pour éviter une race condition sur l'écriture du fichier feedback.yaml.
+    if (isRejected) await onUndoReject();
+    await onReject(entry.url, Array.from(reasons), Array.from(liked), note, entry.company);
+    setRejectOpen(false);
+    resetForm();
+  };
+
   return (
     <>
       <Card
         className={cn(
           "transition-colors",
           isRejected
-            ? "border-red-500/30 bg-red-500/[0.04] opacity-70"
+            ? "border-red-500/40 bg-red-500/[0.05]"
             : selected
               ? "border-emerald-500 bg-emerald-500/5"
               : "hover:bg-accent/20"
@@ -1019,17 +1041,13 @@ function ProcessedCard({
                   </Badge>
                 ) : null}
                 {entry.company ? (
-                  <span className={cn("text-sm font-semibold", isRejected && "line-through")}>
-                    {entry.company}
-                  </span>
+                  <span className="text-sm font-semibold">{entry.company}</span>
                 ) : null}
                 {entry.role ? <span className="text-xs text-muted-foreground">— {entry.role}</span> : null}
               </div>
 
               {details?.tldr ? (
-                <p className={cn("text-xs leading-relaxed text-foreground/80", isRejected && "line-through opacity-70")}>
-                  {details.tldr}
-                </p>
+                <p className="text-xs leading-relaxed text-foreground/80">{details.tldr}</p>
               ) : (
                 <p className="text-xs italic text-muted-foreground">
                   Pas de résumé disponible (le rapport détaillé n'a peut-être pas été généré).
@@ -1083,14 +1101,24 @@ function ProcessedCard({
                   Voir l'annonce complète
                 </a>
                 {isRejected ? (
-                  <button
-                    type="button"
-                    onClick={onUndoReject}
-                    className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline"
-                  >
-                    <RefreshCw className="h-3 w-3" />
-                    Annuler le rejet
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={openForEdit}
+                      className="inline-flex items-center gap-1 text-amber-600 hover:text-amber-700 hover:underline dark:text-amber-400"
+                    >
+                      <Wand2 className="h-3 w-3" />
+                      Modifier le rejet
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onUndoReject}
+                      className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      Annuler le rejet
+                    </button>
+                  </>
                 ) : (
                   <button
                     type="button"
@@ -1116,7 +1144,9 @@ function ProcessedCard({
       >
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Pas pour moi : pourquoi exactement ?</DialogTitle>
+            <DialogTitle>
+              {isRejected ? "Modifier le rejet" : "Pas pour moi : pourquoi exactement ?"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-xs text-muted-foreground">
@@ -1196,15 +1226,8 @@ function ProcessedCard({
             <Button variant="ghost" onClick={() => setRejectOpen(false)}>
               Annuler
             </Button>
-            <Button
-              disabled={reasons.size === 0}
-              onClick={() => {
-                onReject(entry.url, Array.from(reasons), Array.from(liked), note, entry.company);
-                setRejectOpen(false);
-                resetForm();
-              }}
-            >
-              Enregistrer le rejet ({reasons.size})
+            <Button disabled={reasons.size === 0} onClick={handleSave}>
+              {isRejected ? "Mettre à jour" : "Enregistrer le rejet"} ({reasons.size})
             </Button>
           </DialogFooter>
         </DialogContent>

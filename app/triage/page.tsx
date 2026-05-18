@@ -289,6 +289,8 @@ export default function TriagePage() {
   }
 
   const pending = data?.pipeline.filter((p) => p.status === "pending") ?? [];
+  const processed = (data?.pipeline.filter((p) => p.status === "processed") ?? []).slice(0, 50);
+  const errored = data?.pipeline.filter((p) => p.status === "error") ?? [];
   const rejections = data?.feedback.rejections ?? [];
 
   const confirmConfig = (() => {
@@ -348,6 +350,9 @@ export default function TriagePage() {
           <TabsList>
             <TabsTrigger value="inbox">
               Inbox ({pending.length})
+            </TabsTrigger>
+            <TabsTrigger value="processed">
+              Récemment traitées ({processed.length})
             </TabsTrigger>
             <TabsTrigger value="rejections">Rejets ({rejections.length})</TabsTrigger>
             <TabsTrigger value="refine">
@@ -466,17 +471,89 @@ export default function TriagePage() {
             </Card>
 
             {pending.length === 0 ? (
-              <EmptyState
-                icon={Inbox}
-                title="Inbox vide"
-                description="Lance un scan ci-dessus, ou ajoute une URL manuellement. Les offres trouvées s'afficheront ici prêtes à trier."
-              />
+              processed.length > 0 ? (
+                <EmptyState
+                  icon={Check}
+                  title="Inbox vide — toutes les offres ont été traitées ✓"
+                  description={`${processed.length} offre${processed.length > 1 ? "s" : ""} récemment scannée${processed.length > 1 ? "s" : ""} et évaluée${processed.length > 1 ? "s" : ""}. Va voir l'onglet « Récemment traitées » ci-dessus, ou « Candidatures » dans la sidebar pour les détails complets.`}
+                />
+              ) : (
+                <EmptyState
+                  icon={Inbox}
+                  title="Inbox vide"
+                  description="Lance un scan ci-dessus, ou ajoute une URL manuellement. Les offres trouvées s'afficheront ici prêtes à trier."
+                />
+              )
             ) : (
               <div className="space-y-2">
                 {pending.map((p, i) => (
                   <PendingCard key={`${p.url}-${i}`} entry={p} onApprove={approve} onReject={reject} />
                 ))}
               </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="processed" className="mt-6 space-y-3">
+            {processed.length === 0 ? (
+              <EmptyState
+                icon={Check}
+                title="Aucune offre traitée pour l'instant"
+                description="Lance un scan + évaluation pour faire travailler l'IA sur tes offres."
+              />
+            ) : (
+              <>
+                <Alert>
+                  <Check className="h-4 w-4" />
+                  <AlertTitle>{processed.length} offre{processed.length > 1 ? "s" : ""} récemment traitée{processed.length > 1 ? "s" : ""}</AlertTitle>
+                  <AlertDescription className="text-xs">
+                    Voici les offres scannées + évaluées par l'IA. Pour le détail complet (rapport, score par bloc, CV adapté),
+                    va dans <strong>Candidatures</strong> ou <strong>Documents</strong>.
+                  </AlertDescription>
+                </Alert>
+                {processed.map((p, i) => (
+                  <Card key={`${p.url}-${i}`}>
+                    <CardContent className="flex items-start justify-between gap-3 p-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {p.score ? (
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "font-mono",
+                                parseFloat(p.score) >= 4 ? "border-emerald-500 text-emerald-700 dark:text-emerald-300" :
+                                parseFloat(p.score) >= 3 ? "border-blue-500 text-blue-700 dark:text-blue-300" :
+                                "border-red-500 text-red-700 dark:text-red-300"
+                              )}
+                            >
+                              {p.score}
+                            </Badge>
+                          ) : null}
+                          {p.company ? <span className="text-sm font-medium">{p.company}</span> : null}
+                          {p.role ? <span className="text-xs text-muted-foreground">— {p.role}</span> : null}
+                        </div>
+                        <a
+                          href={p.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1 flex items-center gap-1 truncate text-xs text-muted-foreground hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{p.url}</span>
+                        </a>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                {errored.length > 0 ? (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>{errored.length} offre{errored.length > 1 ? "s" : ""} en erreur</AlertTitle>
+                    <AlertDescription className="text-xs">
+                      Ces URLs n'ont pas pu être analysées (souvent : page connexion requise, ou domaine bloqué). Tu peux les supprimer manuellement de <code>data/pipeline.md</code>.
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+              </>
             )}
           </TabsContent>
 

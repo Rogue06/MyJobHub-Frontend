@@ -1,4 +1,5 @@
 export type RejectionReason =
+  | "annonce-expiree"
   | "mauvais-metier"
   | "salaire-trop-bas"
   | "trop-loin"
@@ -9,7 +10,13 @@ export type RejectionReason =
   | "secteur-non-souhaite"
   | "autre";
 
+/** Raisons « factuelles » qui ne reflètent pas une préférence du candidat
+ *  (annonce morte, doublon, etc.). Le module d'apprentissage doit les
+ *  ignorer pour ne pas en tirer de règles de filtrage. */
+export const FACTUAL_REJECTION_REASONS: RejectionReason[] = ["annonce-expiree"];
+
 export const REJECTION_REASONS: { id: RejectionReason; label: string; description: string }[] = [
+  { id: "annonce-expiree", label: "Annonce expirée / plus dispo", description: "Lien mort, offre retirée, page 404…" },
   { id: "mauvais-metier", label: "Mauvais métier", description: "Le poste ne correspond pas à ce que je cherche" },
   { id: "salaire-trop-bas", label: "Salaire insuffisant", description: "Rémunération trop faible pour la zone/poste" },
   { id: "trop-loin", label: "Trop loin / mauvais lieu", description: "Géographie incompatible (été ou général)" },

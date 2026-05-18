@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import yaml from "yaml";
 import { readAppConfig } from "@/lib/app-config";
-import { readFeedback, REJECTION_REASONS } from "@/lib/triage";
+import { readFeedback } from "@/lib/triage";
+import { REJECTION_REASONS, FACTUAL_REJECTION_REASONS, getEntryReasons } from "@/lib/triage-types";
 import { readPortalsYml, writePortalsYml } from "@/lib/workspace-files";
 import { runClaude, isClaudeAvailable } from "@/lib/claude-runner";
 
@@ -75,20 +76,32 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
     }
 
     const feedback = await readFeedback(ws);
-    if (feedback.rejections.length === 0) {
+    // Exclut les raisons factuelles (annonce-expiree) : ce sont des faits
+    // externes (lien mort), pas des signaux de préférence dont l'IA peut
+    // tirer des règles de filtrage.
+    const signalRejections = feedback.rejections.filter((r) => {
+      const reasons = getEntryReasons(r);
+      return reasons.some((id) => !FACTUAL_REJECTION_REASONS.includes(id));
+    });
+
+    if (signalRejections.length === 0) {
       return NextResponse.json({
-        summary: "Aucun rejet enregistré pour le moment. Marque quelques offres comme rejetées d'abord.",
+        summary:
+          feedback.rejections.length === 0
+            ? "Aucun rejet enregistré pour le moment. Marque quelques offres comme rejetées d'abord."
+            : "Tes rejets ne contiennent que des raisons factuelles (annonces expirées). Rejette quelques offres avec des vraies raisons de préférence pour que l'IA puisse proposer des règles.",
         changes: [],
       });
     }
 
     const portals = await readPortalsYml(ws);
 
-    const reasonsLegend = REJECTION_REASONS.map((r) => `- ${r.id} : ${r.label} (${r.description})`).join("\n");
+    const usableReasons = REJECTION_REASONS.filter((r) => !FACTUAL_REJECTION_REASONS.includes(r.id));
+    const reasonsLegend = usableReasons.map((r) => `- ${r.id} : ${r.label} (${r.description})`).join("\n");
 
     const prompt = PROMPT_TEMPLATE
       .replace("{{PORTALS_YAML}}", portals.raw)
-      .replace("{{FEEDBACK_JSON}}", JSON.stringify(feedback.rejections, null, 2))
+      .replace("{{FEEDBACK_JSON}}", JSON.stringify(signalRejections, null, 2))
       .replace("{{REASONS_LEGEND}}", reasonsLegend);
 
     const result = await runClaude({ prompt, timeout: 4 * 60 * 1000 });

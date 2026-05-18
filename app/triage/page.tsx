@@ -1120,14 +1120,26 @@ function ProcessedCard({
                     </button>
                   </>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => setRejectOpen(true)}
-                    className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 hover:underline dark:text-red-400"
-                  >
-                    <X className="h-3 w-3" />
-                    Pas pour moi
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setRejectOpen(true)}
+                      className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 hover:underline dark:text-red-400"
+                    >
+                      <X className="h-3 w-3" />
+                      Pas pour moi
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onReject(entry.url, ["annonce-expiree"], [], "", entry.company)
+                      }
+                      title="Marque l'offre comme expirée / lien mort (1 clic, sans formulaire)"
+                      className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                      🚫 Plus dispo
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -1280,6 +1292,14 @@ function PendingCard({
         <div className="flex gap-1.5">
           <Button size="sm" variant="outline" onClick={() => onApprove(entry.url)}>
             <Check className="mr-1 h-3 w-3 text-emerald-500" /> Garder
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            title="Annonce expirée / lien mort — rejet 1 clic sans formulaire"
+            onClick={() => onReject(entry.url, ["annonce-expiree"], [], "", entry.company)}
+          >
+            🚫 Plus dispo
           </Button>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger render={<Button size="sm" variant="ghost" />}>

@@ -67,6 +67,16 @@ interface TriageData {
   feedback: { rejections: FeedbackEntry[]; approvals: { id: string; url: string; createdAt: string }[] };
 }
 
+interface ProcessedDetail {
+  url: string;
+  tldr?: string;
+  salary?: string;
+  location?: string;
+  contract?: string;
+  archetype?: string;
+  score?: string;
+}
+
 type ScanMode = "fast" | "agent" | "auto" | "auto-light";
 
 interface ProposalChange {
@@ -96,6 +106,7 @@ export default function TriagePage() {
   const [scanModel, setScanModel] = useModelPreference("myjobhub-model-scan");
   const [confirmMode, setConfirmMode] = React.useState<ScanMode | null>(null);
   const [selectedUrls, setSelectedUrls] = React.useState<Set<string>>(new Set());
+  const [processedDetails, setProcessedDetails] = React.useState<Record<string, ProcessedDetail>>({});
   const [generating, setGenerating] = React.useState(false);
   const [generateLogs, setGenerateLogs] = React.useState<LogEvent[]>([]);
   const [generateDone, setGenerateDone] = React.useState(false);
@@ -148,13 +159,20 @@ export default function TriagePage() {
     if (!activeWorkspace) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/workspaces/${activeWorkspace.id}/triage`, { cache: "no-store" });
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json.error ?? "Lecture impossible");
+      const [triageRes, detailsRes] = await Promise.all([
+        fetch(`/api/workspaces/${activeWorkspace.id}/triage`, { cache: "no-store" }),
+        fetch(`/api/workspaces/${activeWorkspace.id}/processed-details`, { cache: "no-store" }),
+      ]);
+      const triageJson = await triageRes.json();
+      if (!triageRes.ok) {
+        toast.error(triageJson.error ?? "Lecture impossible");
         return;
       }
-      setData(json);
+      setData(triageJson);
+      if (detailsRes.ok) {
+        const detailsJson = await detailsRes.json();
+        setProcessedDetails(detailsJson.details ?? {});
+      }
     } catch (err) {
       toast.error(`Erreur : ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -565,52 +583,80 @@ export default function TriagePage() {
 
                 {processed.map((p, i) => {
                   const selected = selectedUrls.has(p.url);
+                  const details = processedDetails[p.url];
                   return (
                     <Card
                       key={`${p.url}-${i}`}
                       className={cn(
-                        "cursor-pointer transition-colors",
-                        selected ? "border-emerald-500 bg-emerald-500/5" : "hover:bg-accent/30"
+                        "transition-colors",
+                        selected ? "border-emerald-500 bg-emerald-500/5" : "hover:bg-accent/20"
                       )}
-                      onClick={() => toggleSelect(p.url)}
                     >
-                      <CardContent className="flex items-start gap-3 p-4">
-                        <Checkbox
-                          checked={selected}
-                          onCheckedChange={() => toggleSelect(p.url)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="mt-0.5"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            {p.score ? (
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "font-mono",
-                                  parseFloat(p.score) >= 4
-                                    ? "border-emerald-500 text-emerald-700 dark:text-emerald-300"
-                                    : parseFloat(p.score) >= 3
-                                      ? "border-blue-500 text-blue-700 dark:text-blue-300"
-                                      : "border-red-500 text-red-700 dark:text-red-300"
-                                )}
-                              >
-                                {p.score}
-                              </Badge>
-                            ) : null}
-                            {p.company ? <span className="text-sm font-medium">{p.company}</span> : null}
-                            {p.role ? <span className="text-xs text-muted-foreground">— {p.role}</span> : null}
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={selected}
+                            onCheckedChange={() => toggleSelect(p.url)}
+                            className="mt-1 shrink-0"
+                            aria-label={`Sélectionner ${p.company ?? "cette offre"}`}
+                          />
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {p.score ? (
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "font-mono",
+                                    parseFloat(p.score) >= 4
+                                      ? "border-emerald-500 text-emerald-700 dark:text-emerald-300"
+                                      : parseFloat(p.score) >= 3
+                                        ? "border-blue-500 text-blue-700 dark:text-blue-300"
+                                        : "border-red-500 text-red-700 dark:text-red-300"
+                                  )}
+                                >
+                                  {p.score}
+                                </Badge>
+                              ) : null}
+                              {p.company ? <span className="text-sm font-semibold">{p.company}</span> : null}
+                              {p.role ? <span className="text-xs text-muted-foreground">— {p.role}</span> : null}
+                            </div>
+
+                            {details?.tldr ? (
+                              <p className="text-xs leading-relaxed text-foreground/80">{details.tldr}</p>
+                            ) : (
+                              <p className="text-xs italic text-muted-foreground">
+                                Pas de résumé disponible (le rapport détaillé n'a peut-être pas été généré).
+                              </p>
+                            )}
+
+                            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                              {details?.contract ? (
+                                <Badge variant="secondary" className="font-normal">
+                                  {details.contract}
+                                </Badge>
+                              ) : null}
+                              {details?.location ? (
+                                <Badge variant="secondary" className="font-normal">
+                                  📍 {details.location}
+                                </Badge>
+                              ) : null}
+                              {details?.salary ? (
+                                <Badge variant="secondary" className="font-normal">
+                                  💰 {details.salary}
+                                </Badge>
+                              ) : null}
+                            </div>
+
+                            <a
+                              href={p.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground hover:underline"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              Voir l'annonce complète
+                            </a>
                           </div>
-                          <a
-                            href={p.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="mt-1 flex items-center gap-1 truncate text-xs text-muted-foreground hover:underline"
-                          >
-                            <ExternalLink className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{p.url}</span>
-                          </a>
                         </div>
                       </CardContent>
                     </Card>
@@ -618,13 +664,45 @@ export default function TriagePage() {
                 })}
 
                 {errored.length > 0 ? (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>{errored.length} offre{errored.length > 1 ? "s" : ""} en erreur</AlertTitle>
-                    <AlertDescription className="text-xs">
-                      Ces URLs n'ont pas pu être analysées (souvent : page connexion requise, ou domaine bloqué). Tu peux les supprimer manuellement de <code>data/pipeline.md</code>.
-                    </AlertDescription>
-                  </Alert>
+                  <div className="space-y-2 pt-4">
+                    <div className="flex items-center gap-2">
+                      <X className="h-4 w-4 text-amber-600" />
+                      <h3 className="text-sm font-semibold">
+                        {errored.length} offre{errored.length > 1 ? "s" : ""} écartée{errored.length > 1 ? "s" : ""} automatiquement par l'IA
+                      </h3>
+                    </div>
+                    <Alert>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Ces offres ont été vues lors du scan mais Claude a décidé de ne pas les évaluer en détail (URL inaccessible, page nécessitant un compte, ou critère bloquant identifié dès le titre). Tu peux quand même les ouvrir manuellement.
+                      </AlertDescription>
+                    </Alert>
+                    {errored.map((e, i) => {
+                      const note = e.note ?? e.raw ?? "";
+                      const reasonMatch = note.match(/[—-]\s*(.+)$/);
+                      const reason = reasonMatch ? reasonMatch[1].trim() : "Raison non précisée";
+                      return (
+                        <Card key={`err-${i}`} className="border-amber-500/30 bg-amber-500/5">
+                          <CardContent className="p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1 space-y-1">
+                                <p className="text-xs italic text-foreground/80">« {reason} »</p>
+                                <a
+                                  href={e.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-1 truncate text-[11px] text-muted-foreground hover:underline"
+                                >
+                                  <ExternalLink className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">{e.url}</span>
+                                </a>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
                 ) : null}
               </>
             )}

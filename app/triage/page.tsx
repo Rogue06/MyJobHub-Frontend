@@ -115,6 +115,7 @@ export default function TriagePage() {
   const [generateDone, setGenerateDone] = React.useState(false);
   const [confirmGenerate, setConfirmGenerate] = React.useState(false);
   const [generateModel, setGenerateModel] = useModelPreference("myjobhub-model-generate-docs");
+  const [activeTab, setActiveTab] = React.useState<string>("inbox");
 
   const toggleSelect = (url: string) => {
     setSelectedUrls((prev) => {
@@ -186,6 +187,27 @@ export default function TriagePage() {
   React.useEffect(() => {
     void load();
   }, [load]);
+
+  // Auto-désélectionne les URLs qui viennent d'être rejetées (pour éviter
+  // qu'on génère un CV pour une offre qu'on vient de marquer « pas pour moi »).
+  const rejectionUrls = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const r of data?.feedback.rejections ?? []) set.add(r.url);
+    return set;
+  }, [data?.feedback.rejections]);
+  React.useEffect(() => {
+    setSelectedUrls((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      prev.forEach((u) => {
+        if (rejectionUrls.has(u)) {
+          next.delete(u);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [rejectionUrls]);
 
   const scan = async (mode: ScanMode) => {
     if (!activeWorkspace) return;
@@ -370,6 +392,10 @@ export default function TriagePage() {
   const processed = (data?.pipeline.filter((p) => p.status === "processed") ?? []).slice(0, 50);
   const errored = data?.pipeline.filter((p) => p.status === "error") ?? [];
   const rejections = data?.feedback.rejections ?? [];
+  const rejectedUrlMap = new Map<string, FeedbackEntry>();
+  for (const r of rejections) rejectedUrlMap.set(r.url, r);
+  const processedRejectedCount = processed.filter((p) => rejectedUrlMap.has(p.url)).length;
+  const processedRemainingCount = processed.length - processedRejectedCount;
 
   const confirmConfig = (() => {
     if (confirmMode === "auto-light") {
@@ -400,13 +426,13 @@ export default function TriagePage() {
       {loading ? (
         <Skeleton className="h-64 w-full" />
       ) : (
-        <Tabs defaultValue="inbox">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="inbox">
               Inbox ({pending.length})
             </TabsTrigger>
             <TabsTrigger value="processed">
-              Récemment traitées ({processed.length})
+              Récemment traitées ({processedRemainingCount}/{processed.length})
             </TabsTrigger>
             <TabsTrigger value="rejections">Rejets ({rejections.length})</TabsTrigger>
             <TabsTrigger value="refine">
@@ -574,10 +600,15 @@ export default function TriagePage() {
 
                 <Alert>
                   <Check className="h-4 w-4" />
-                  <AlertTitle>{processed.length} offre{processed.length > 1 ? "s" : ""} évaluée{processed.length > 1 ? "s" : ""}</AlertTitle>
+                  <AlertTitle>
+                    {processedRemainingCount === 0
+                      ? `Toutes les ${processed.length} offres ont été traitées ✓`
+                      : `${processedRemainingCount} restante${processedRemainingCount > 1 ? "s" : ""} à traiter sur ${processed.length}${processedRejectedCount > 0 ? ` (${processedRejectedCount} rejetée${processedRejectedCount > 1 ? "s" : ""})` : ""}`}
+                  </AlertTitle>
                   <AlertDescription className="text-xs">
-                    Coche les offres qui t'intéressent, puis lance la génération CV + lettre uniquement sur celles-là.
-                    Tu économises 3-5× les tokens vs un pipeline complet sur tout.
+                    {processedRemainingCount === 0
+                      ? "Tu peux relancer un scan, ou consulter tes rejets dans l'onglet à côté pour affiner les filtres."
+                      : "Coche les offres qui t'intéressent → bouton vert pour générer CV + lettre. Sinon clic « Pas pour moi » → carte grisée, l'IA apprend."}
                   </AlertDescription>
                 </Alert>
 
@@ -591,6 +622,8 @@ export default function TriagePage() {
                 ) : null}
 
                 {processed.map((p, i) => {
+                  const rejection = rejectedUrlMap.get(p.url);
+                  const isRejected = !!rejection;
                   const selected = selectedUrls.has(p.url);
                   const details = processedDetails[p.url];
                   return (
@@ -599,8 +632,11 @@ export default function TriagePage() {
                       entry={p}
                       details={details}
                       selected={selected}
+                      isRejected={isRejected}
+                      rejection={rejection}
                       onToggleSelect={() => toggleSelect(p.url)}
                       onReject={reject}
+                      onUndoReject={() => rejection && removeRejection(rejection.id)}
                     />
                   );
                 })}
@@ -894,14 +930,20 @@ function ProcessedCard({
   entry,
   details,
   selected,
+  isRejected,
+  rejection,
   onToggleSelect,
   onReject,
+  onUndoReject,
 }: {
   entry: PipelineEntry;
   details: ProcessedDetail | undefined;
   selected: boolean;
+  isRejected: boolean;
+  rejection: FeedbackEntry | undefined;
   onToggleSelect: () => void;
   onReject: (url: string, reasons: RejectionReason[], liked: LikedAspect[], note: string, company?: string) => void;
+  onUndoReject: () => void;
 }) {
   const [rejectOpen, setRejectOpen] = React.useState(false);
   const [reasons, setReasons] = React.useState<Set<RejectionReason>>(new Set());
@@ -930,12 +972,19 @@ function ProcessedCard({
     setNote("");
   };
 
+  const rejectionReasons = rejection ? getEntryReasons(rejection) : [];
+  const rejectionLiked = rejection?.liked ?? [];
+
   return (
     <>
       <Card
         className={cn(
           "transition-colors",
-          selected ? "border-emerald-500 bg-emerald-500/5" : "hover:bg-accent/20"
+          isRejected
+            ? "border-red-500/30 bg-red-500/[0.04] opacity-70"
+            : selected
+              ? "border-emerald-500 bg-emerald-500/5"
+              : "hover:bg-accent/20"
         )}
       >
         <CardContent className="p-4">
@@ -943,11 +992,17 @@ function ProcessedCard({
             <Checkbox
               checked={selected}
               onCheckedChange={onToggleSelect}
+              disabled={isRejected}
               className="mt-1 shrink-0"
               aria-label={`Sélectionner ${entry.company ?? "cette offre"}`}
             />
             <div className="min-w-0 flex-1 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
+                {isRejected ? (
+                  <Badge variant="destructive" className="text-[10px] font-normal">
+                    ✗ Rejetée
+                  </Badge>
+                ) : null}
                 {entry.score ? (
                   <Badge
                     variant="outline"
@@ -963,12 +1018,18 @@ function ProcessedCard({
                     {entry.score}
                   </Badge>
                 ) : null}
-                {entry.company ? <span className="text-sm font-semibold">{entry.company}</span> : null}
+                {entry.company ? (
+                  <span className={cn("text-sm font-semibold", isRejected && "line-through")}>
+                    {entry.company}
+                  </span>
+                ) : null}
                 {entry.role ? <span className="text-xs text-muted-foreground">— {entry.role}</span> : null}
               </div>
 
               {details?.tldr ? (
-                <p className="text-xs leading-relaxed text-foreground/80">{details.tldr}</p>
+                <p className={cn("text-xs leading-relaxed text-foreground/80", isRejected && "line-through opacity-70")}>
+                  {details.tldr}
+                </p>
               ) : (
                 <p className="text-xs italic text-muted-foreground">
                   Pas de résumé disponible (le rapport détaillé n'a peut-être pas été généré).
@@ -993,6 +1054,24 @@ function ProcessedCard({
                 ) : null}
               </div>
 
+              {isRejected && (rejectionReasons.length > 0 || rejectionLiked.length > 0) ? (
+                <div className="flex flex-wrap gap-1 pt-1">
+                  {rejectionReasons.map((id) => (
+                    <Badge key={id} variant="destructive" className="text-[10px] font-normal">
+                      ✗ {REJECTION_REASONS.find((x) => x.id === id)?.label ?? id}
+                    </Badge>
+                  ))}
+                  {rejectionLiked.map((id) => (
+                    <Badge
+                      key={id}
+                      className="bg-emerald-600 text-[10px] font-normal text-white hover:bg-emerald-700"
+                    >
+                      ✓ {LIKED_ASPECTS.find((x) => x.id === id)?.label ?? id}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
+
               <div className="flex items-center gap-3 pt-1 text-xs">
                 <a
                   href={entry.url}
@@ -1003,14 +1082,25 @@ function ProcessedCard({
                   <ExternalLink className="h-3 w-3" />
                   Voir l'annonce complète
                 </a>
-                <button
-                  type="button"
-                  onClick={() => setRejectOpen(true)}
-                  className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 hover:underline dark:text-red-400"
-                >
-                  <X className="h-3 w-3" />
-                  Pas pour moi
-                </button>
+                {isRejected ? (
+                  <button
+                    type="button"
+                    onClick={onUndoReject}
+                    className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    Annuler le rejet
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setRejectOpen(true)}
+                    className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 hover:underline dark:text-red-400"
+                  >
+                    <X className="h-3 w-3" />
+                    Pas pour moi
+                  </button>
+                )}
               </div>
             </div>
           </div>

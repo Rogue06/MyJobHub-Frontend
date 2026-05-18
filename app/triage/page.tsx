@@ -16,6 +16,8 @@ import {
   AlertCircle,
   Zap,
   Radar,
+  FileText,
+  CheckSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/layout/page-shell";
@@ -27,6 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -92,6 +95,54 @@ export default function TriagePage() {
   const [scanFinished, setScanFinished] = React.useState(false);
   const [scanModel, setScanModel] = useModelPreference("myjobhub-model-scan");
   const [confirmMode, setConfirmMode] = React.useState<ScanMode | null>(null);
+  const [selectedUrls, setSelectedUrls] = React.useState<Set<string>>(new Set());
+  const [generating, setGenerating] = React.useState(false);
+  const [generateLogs, setGenerateLogs] = React.useState<LogEvent[]>([]);
+  const [generateDone, setGenerateDone] = React.useState(false);
+  const [confirmGenerate, setConfirmGenerate] = React.useState(false);
+  const [generateModel, setGenerateModel] = useModelPreference("myjobhub-model-generate-docs");
+
+  const toggleSelect = (url: string) => {
+    setSelectedUrls((prev) => {
+      const next = new Set(prev);
+      if (next.has(url)) next.delete(url);
+      else next.add(url);
+      return next;
+    });
+  };
+
+  const generateDocs = async () => {
+    if (!activeWorkspace || selectedUrls.size === 0) return;
+    setGenerating(true);
+    setGenerateDone(false);
+    setGenerateLogs([]);
+    setConfirmGenerate(false);
+    try {
+      const res = await fetch(`/api/workspaces/${activeWorkspace.id}/generate-docs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urls: Array.from(selectedUrls), model: generateModel }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        toast.error(j.error ?? "Génération impossible");
+        return;
+      }
+      await consumeSseStream(res, (evt) => {
+        setGenerateLogs((prev) => [...prev, evt]);
+        if (evt.type === "done") {
+          setGenerateDone(true);
+          void load();
+        }
+        if (evt.type === "error") toast.error(evt.message);
+      });
+      setSelectedUrls(new Set());
+    } catch (err) {
+      toast.error(`Erreur : ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const load = React.useCallback(async () => {
     if (!activeWorkspace) return;
@@ -294,30 +345,6 @@ export default function TriagePage() {
   const rejections = data?.feedback.rejections ?? [];
 
   const confirmConfig = (() => {
-    if (confirmMode === "auto") {
-      return {
-        title: "Lancer le workflow automatique ?",
-        description:
-          "Claude va d'abord scanner tous les portails que tu as activés, puis évaluer chaque offre trouvée selon ton profil. Durée typique : 20 à 30 min, en arrière-plan.",
-        warnings: [
-          `Consomme tes crédits Claude (modèle : ${scanModel}). Choisis Haiku si tu veux économiser.`,
-          "Garde l'onglet ouvert pendant l'exécution. Tu peux continuer à naviguer dans MyJobHub.",
-        ],
-        cta: "C'est parti, je lance",
-      };
-    }
-    if (confirmMode === "agent") {
-      return {
-        title: "Lancer le scan complet IA ?",
-        description:
-          "Claude visite tous les portails activés via Playwright et WebSearch pour récupérer les nouvelles annonces. 5 à 10 min selon le nombre de portails. Aucune évaluation à cette étape.",
-        warnings: [
-          `Consomme tes crédits Claude (modèle : ${scanModel}). Tu peux lancer ensuite l'évaluation manuellement.`,
-          "Pour scanner + évaluer en un seul coup, utilise plutôt « Tout automatiser ».",
-        ],
-        cta: "Lancer le scan",
-      };
-    }
     if (confirmMode === "auto-light") {
       return {
         title: "Scan + évaluation rapide (économique) ?",
@@ -376,60 +403,36 @@ export default function TriagePage() {
                     onClick={() => setConfirmMode("auto-light")}
                     disabled={!!scanRunning}
                     variant="default"
+                    size="lg"
                     className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600"
                   >
                     {scanRunning === "auto-light" ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
-                      <Zap className="mr-2 h-4 w-4" />
+                      <Radar className="mr-2 h-4 w-4" />
                     )}
-                    Scan + Éval rapide (économique)
+                    Scanner mes annonces
                   </Button>
-                  <Button
-                    onClick={() => setConfirmMode("auto")}
-                    disabled={!!scanRunning}
-                    variant="outline"
-                    className="border-indigo-500/40"
-                  >
-                    {scanRunning === "auto" ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Wand2 className="mr-2 h-4 w-4 text-indigo-500" />
-                    )}
-                    Tout automatiser (complet, coûteux)
-                  </Button>
-                  <Button onClick={() => void scan("fast")} disabled={!!scanRunning} variant="outline">
+                  <Button onClick={() => void scan("fast")} disabled={!!scanRunning} variant="ghost" size="sm">
                     {scanRunning === "fast" ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />
                     ) : (
-                      <Zap className="mr-2 h-4 w-4" />
+                      <Zap className="mr-2 h-3 w-3" />
                     )}
-                    Scan rapide seul
-                  </Button>
-                  <Button onClick={() => setConfirmMode("agent")} disabled={!!scanRunning} variant="outline">
-                    {scanRunning === "agent" ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="mr-2 h-4 w-4" />
-                    )}
-                    Scan complet seul
+                    Scan rapide seul (sans Claude)
                   </Button>
                   <ModelPicker value={scanModel} onChange={setScanModel} recommendedModel="sonnet" compact />
                 </div>
-                <ul className="space-y-1 text-xs text-muted-foreground">
-                  <li>
-                    🌱 <strong className="text-foreground">Scan + Éval rapide</strong> — recommandé au quotidien : score + résumé court par offre, ~3-5× moins de tokens. Tu lances ensuite le pipeline complet seulement sur les offres qui t'intéressent.
-                  </li>
-                  <li>
-                    🪄 <strong>Tout automatiser (complet)</strong> — scan + évaluation détaillée + CV adaptés + lettres pour CHAQUE offre (20-30 min, gros consommateur de tokens).
-                  </li>
-                  <li>
-                    ⚡ <strong>Scan rapide</strong> — APIs publiques uniquement, instantané, sans Claude.
-                  </li>
-                  <li>
-                    ✨ <strong>Scan complet</strong> — remplit l'inbox via Claude (5-10 min), sans évaluer.
-                  </li>
-                </ul>
+                <Alert>
+                  <Radar className="h-4 w-4" />
+                  <AlertTitle className="text-xs">Workflow recommandé</AlertTitle>
+                  <AlertDescription className="text-xs">
+                    Le bouton vert ci-dessus lance le <strong>scan complet IA + une évaluation rapide</strong> de chaque offre trouvée
+                    (score + résumé court, sans génération de CV ni lettre). Ensuite, va dans l'onglet « Récemment traitées »,
+                    coche les offres qui t'intéressent et clique sur <strong>« Générer CV + lettre pour la sélection »</strong>.
+                    Tu ne consommes des tokens lourds que sur les offres que tu valides.
+                  </AlertDescription>
+                </Alert>
                 {scanLogs.length > 0 || scanRunning ? (
                   <ScanProgress
                     logs={scanLogs}
@@ -502,48 +505,118 @@ export default function TriagePage() {
               />
             ) : (
               <>
+                <Card className="border-emerald-500/40 bg-emerald-500/5">
+                  <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckSquare className="h-4 w-4 text-emerald-600" />
+                      <span>
+                        <strong>{selectedUrls.size}</strong> sélectionnée{selectedUrls.size > 1 ? "s" : ""} sur {processed.length}
+                      </span>
+                      {selectedUrls.size > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUrls(new Set())}
+                          className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                        >
+                          Désélectionner
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedUrls(new Set(processed.map((p) => p.url)))}
+                          className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                        >
+                          Tout sélectionner
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <ModelPicker value={generateModel} onChange={setGenerateModel} recommendedModel="sonnet" compact />
+                      <Button
+                        size="sm"
+                        onClick={() => setConfirmGenerate(true)}
+                        disabled={selectedUrls.size === 0 || generating}
+                        className="bg-emerald-600 text-white hover:bg-emerald-700"
+                      >
+                        {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                        Générer CV + lettre ({selectedUrls.size})
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 <Alert>
                   <Check className="h-4 w-4" />
-                  <AlertTitle>{processed.length} offre{processed.length > 1 ? "s" : ""} récemment traitée{processed.length > 1 ? "s" : ""}</AlertTitle>
+                  <AlertTitle>{processed.length} offre{processed.length > 1 ? "s" : ""} évaluée{processed.length > 1 ? "s" : ""}</AlertTitle>
                   <AlertDescription className="text-xs">
-                    Voici les offres scannées + évaluées par l'IA. Pour le détail complet (rapport, score par bloc, CV adapté),
-                    va dans <strong>Candidatures</strong> ou <strong>Documents</strong>.
+                    Coche les offres qui t'intéressent, puis lance la génération CV + lettre uniquement sur celles-là.
+                    Tu économises 3-5× les tokens vs un pipeline complet sur tout.
                   </AlertDescription>
                 </Alert>
-                {processed.map((p, i) => (
-                  <Card key={`${p.url}-${i}`}>
-                    <CardContent className="flex items-start justify-between gap-3 p-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {p.score ? (
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "font-mono",
-                                parseFloat(p.score) >= 4 ? "border-emerald-500 text-emerald-700 dark:text-emerald-300" :
-                                parseFloat(p.score) >= 3 ? "border-blue-500 text-blue-700 dark:text-blue-300" :
-                                "border-red-500 text-red-700 dark:text-red-300"
-                              )}
-                            >
-                              {p.score}
-                            </Badge>
-                          ) : null}
-                          {p.company ? <span className="text-sm font-medium">{p.company}</span> : null}
-                          {p.role ? <span className="text-xs text-muted-foreground">— {p.role}</span> : null}
+
+                {generateLogs.length > 0 || generating ? (
+                  <ScanProgress
+                    logs={generateLogs}
+                    running={generating}
+                    finished={generateDone}
+                    title={generating ? "Génération des CV + lettres en cours…" : "Génération terminée"}
+                  />
+                ) : null}
+
+                {processed.map((p, i) => {
+                  const selected = selectedUrls.has(p.url);
+                  return (
+                    <Card
+                      key={`${p.url}-${i}`}
+                      className={cn(
+                        "cursor-pointer transition-colors",
+                        selected ? "border-emerald-500 bg-emerald-500/5" : "hover:bg-accent/30"
+                      )}
+                      onClick={() => toggleSelect(p.url)}
+                    >
+                      <CardContent className="flex items-start gap-3 p-4">
+                        <Checkbox
+                          checked={selected}
+                          onCheckedChange={() => toggleSelect(p.url)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-0.5"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {p.score ? (
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "font-mono",
+                                  parseFloat(p.score) >= 4
+                                    ? "border-emerald-500 text-emerald-700 dark:text-emerald-300"
+                                    : parseFloat(p.score) >= 3
+                                      ? "border-blue-500 text-blue-700 dark:text-blue-300"
+                                      : "border-red-500 text-red-700 dark:text-red-300"
+                                )}
+                              >
+                                {p.score}
+                              </Badge>
+                            ) : null}
+                            {p.company ? <span className="text-sm font-medium">{p.company}</span> : null}
+                            {p.role ? <span className="text-xs text-muted-foreground">— {p.role}</span> : null}
+                          </div>
+                          <a
+                            href={p.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="mt-1 flex items-center gap-1 truncate text-xs text-muted-foreground hover:underline"
+                          >
+                            <ExternalLink className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{p.url}</span>
+                          </a>
                         </div>
-                        <a
-                          href={p.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-1 flex items-center gap-1 truncate text-xs text-muted-foreground hover:underline"
-                        >
-                          <ExternalLink className="h-3 w-3 shrink-0" />
-                          <span className="truncate">{p.url}</span>
-                        </a>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+
                 {errored.length > 0 ? (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
@@ -691,6 +764,40 @@ export default function TriagePage() {
           </TabsContent>
         </Tabs>
       )}
+
+      <Dialog open={confirmGenerate} onOpenChange={setConfirmGenerate}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-emerald-600" />
+              Générer CV + lettre pour {selectedUrls.size} offre{selectedUrls.size > 1 ? "s" : ""} ?
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              Claude va lancer le pipeline complet sur les {selectedUrls.size} offre{selectedUrls.size > 1 ? "s" : ""} sélectionnée{selectedUrls.size > 1 ? "s" : ""} : évaluation détaillée A-F, CV ATS adapté avec mots-clés du JD, lettre de motivation, plan d'entretien STAR.
+            </p>
+            <ul className="space-y-1.5 rounded-md border bg-muted/30 p-3">
+              <li className="flex items-start gap-2 text-xs">
+                <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+                <span>Compte ~3-5 min par offre, en arrière-plan (modèle : {generateModel}).</span>
+              </li>
+              <li className="flex items-start gap-2 text-xs">
+                <AlertCircle className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+                <span>Une fois fini, tu retrouves les CV dans <strong>Documents</strong> et l'analyse dans <strong>Candidatures</strong>.</span>
+              </li>
+            </ul>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setConfirmGenerate(false)}>
+              Annuler
+            </Button>
+            <Button onClick={() => void generateDocs()} className="bg-emerald-600 text-white hover:bg-emerald-700">
+              Lancer la génération
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={confirmMode !== null} onOpenChange={(o) => !o && setConfirmMode(null)}>
         <DialogContent className="sm:max-w-md">

@@ -147,7 +147,7 @@ export default function TriagePage() {
         setGenerateLogs((prev) => [...prev, evt]);
         if (evt.type === "done") {
           setGenerateDone(true);
-          void load();
+          void load({ silent: true });
         }
         if (evt.type === "error") toast.error(evt.message);
       });
@@ -159,30 +159,36 @@ export default function TriagePage() {
     }
   };
 
-  const load = React.useCallback(async () => {
-    if (!activeWorkspace) return;
-    setLoading(true);
-    try {
-      const [triageRes, detailsRes] = await Promise.all([
-        fetch(`/api/workspaces/${activeWorkspace.id}/triage`, { cache: "no-store" }),
-        fetch(`/api/workspaces/${activeWorkspace.id}/processed-details`, { cache: "no-store" }),
-      ]);
-      const triageJson = await triageRes.json();
-      if (!triageRes.ok) {
-        toast.error(triageJson.error ?? "Lecture impossible");
-        return;
+  const load = React.useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (!activeWorkspace) return;
+      // En mode silent (post-mutation), on ne déclenche pas le skeleton pour
+      // éviter que la liste disparaisse et que le scroll remonte tout en haut.
+      // Seuls le chargement initial et le bouton « Recharger » montrent le skeleton.
+      if (!opts?.silent) setLoading(true);
+      try {
+        const [triageRes, detailsRes] = await Promise.all([
+          fetch(`/api/workspaces/${activeWorkspace.id}/triage`, { cache: "no-store" }),
+          fetch(`/api/workspaces/${activeWorkspace.id}/processed-details`, { cache: "no-store" }),
+        ]);
+        const triageJson = await triageRes.json();
+        if (!triageRes.ok) {
+          toast.error(triageJson.error ?? "Lecture impossible");
+          return;
+        }
+        setData(triageJson);
+        if (detailsRes.ok) {
+          const detailsJson = await detailsRes.json();
+          setProcessedDetails(detailsJson.details ?? {});
+        }
+      } catch (err) {
+        toast.error(`Erreur : ${err instanceof Error ? err.message : String(err)}`);
+      } finally {
+        if (!opts?.silent) setLoading(false);
       }
-      setData(triageJson);
-      if (detailsRes.ok) {
-        const detailsJson = await detailsRes.json();
-        setProcessedDetails(detailsJson.details ?? {});
-      }
-    } catch (err) {
-      toast.error(`Erreur : ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [activeWorkspace]);
+    },
+    [activeWorkspace]
+  );
 
   React.useEffect(() => {
     void load();
@@ -240,7 +246,7 @@ export default function TriagePage() {
         setScanLogs((prev) => [...prev, evt]);
         if (evt.type === "done") {
           setScanFinished(true);
-          void load();
+          void load({ silent: true });
         }
         if (evt.type === "error") {
           toast.error(evt.message);
@@ -268,7 +274,7 @@ export default function TriagePage() {
       }
       toast.success("URL ajoutée à l'inbox");
       setNewUrl("");
-      void load();
+      void load({ silent: true });
     } catch (err) {
       toast.error(`Erreur : ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -294,7 +300,7 @@ export default function TriagePage() {
         return;
       }
       toast.success("Rejet enregistré");
-      void load();
+      void load({ silent: true });
     } catch (err) {
       toast.error(`Erreur : ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -314,7 +320,7 @@ export default function TriagePage() {
         return;
       }
       toast.success("Marquée à évaluer");
-      void load();
+      void load({ silent: true });
     } catch (err) {
       toast.error(`Erreur : ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -327,7 +333,7 @@ export default function TriagePage() {
     });
     if (res.ok) {
       toast.success("Rejet retiré");
-      void load();
+      void load({ silent: true });
     }
   };
 

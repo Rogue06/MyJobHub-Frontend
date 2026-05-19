@@ -66,6 +66,12 @@ export interface WizardPreferences {
   remoteOk: boolean;
   preferredLocations: string[];
   excludedLocations: string[];
+  /** Mots-clés bonus dans les titres d'annonces (l'IA priorise au scoring).
+   *  Stockés dans portals.yml > title_filter.positive. */
+  titlePositive: string[];
+  /** Mots-clés rouges qui déclenchent une pénalité au scoring (chasseur,
+   *  porte-à-porte…). Stockés dans portals.yml > title_filter.negative. */
+  titleNegative: string[];
 }
 
 export const DEFAULT_PREFERENCES: WizardPreferences = {
@@ -80,4 +86,6 @@ export const DEFAULT_PREFERENCES: WizardPreferences = {
   remoteOk: true,
   preferredLocations: [],
   excludedLocations: [],
+  titlePositive: [],
+  titleNegative: [],
 };

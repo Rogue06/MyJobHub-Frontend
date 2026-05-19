@@ -10,6 +10,7 @@ import {
   extractIdentityFromProfile,
   extractPreferencesFromProfile,
   extractSourcesFromPortals,
+  extractTitleFiltersFromPortals,
   mergeIdentityIntoProfile,
 } from "@/lib/workspace-files";
 import { buildPortalsYaml, buildProfileYaml } from "@/lib/yaml-builders";
@@ -28,26 +29,40 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   if (!ws) return NextResponse.json({ error: "Profil introuvable" }, { status: 404 });
 
   const result: Record<string, unknown> = {};
-  try {
-    const profile = await readProfileYml(ws);
-    result.profile = {
-      raw: profile.raw,
-      parsed: profile.parsed,
-      identity: extractIdentityFromProfile(profile.parsed),
-      preferences: extractPreferencesFromProfile(profile.parsed),
-    };
-  } catch (err) {
-    result.profile = { error: String(err) };
-  }
+  // Lecture parallèle pour pouvoir injecter les title_filters de portals.yml
+  // directement dans les préférences renvoyées (l'UI manipule tout sous le
+  // même objet `preferences`).
+  let portalsParsed: Record<string, unknown> = {};
+  let portalsErr: string | undefined;
   try {
     const portals = await readPortalsYml(ws);
+    portalsParsed = portals.parsed;
     result.portals = {
       raw: portals.raw,
       parsed: portals.parsed,
       enabledSources: extractSourcesFromPortals(portals.parsed),
     };
   } catch (err) {
-    result.portals = { error: String(err) };
+    portalsErr = String(err);
+    result.portals = { error: portalsErr };
+  }
+
+  try {
+    const profile = await readProfileYml(ws);
+    const baseprefs = extractPreferencesFromProfile(profile.parsed);
+    const titleFilters = extractTitleFiltersFromPortals(portalsParsed);
+    result.profile = {
+      raw: profile.raw,
+      parsed: profile.parsed,
+      identity: extractIdentityFromProfile(profile.parsed),
+      preferences: {
+        ...baseprefs,
+        titlePositive: titleFilters.positive,
+        titleNegative: titleFilters.negative,
+      },
+    };
+  } catch (err) {
+    result.profile = { error: String(err) };
   }
   try {
     result.cv = await readCvMd(ws);

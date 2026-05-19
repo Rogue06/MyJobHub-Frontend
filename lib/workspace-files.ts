@@ -95,6 +95,21 @@ export function extractPreferencesFromProfile(profile: Record<string, unknown>):
   };
 }
 
+/** Lit les mots-clés titre depuis portals.yml. Renvoie deux listes prêtes à
+ *  injecter dans WizardPreferences (titlePositive / titleNegative). */
+export function extractTitleFiltersFromPortals(portals: Record<string, unknown>): {
+  positive: string[];
+  negative: string[];
+} {
+  const tf = (portals.title_filter ?? {}) as Record<string, unknown>;
+  const pos = (tf.positive as string[] | undefined) ?? [];
+  const neg = (tf.negative as string[] | undefined) ?? [];
+  return {
+    positive: pos.filter((x) => typeof x === "string" && x.length > 0),
+    negative: neg.filter((x) => typeof x === "string" && x.length > 0),
+  };
+}
+
 export function extractSourcesFromPortals(portals: Record<string, unknown>): string[] {
   const tracked = (portals.tracked_companies as Array<{ name?: string; careers_url?: string }> | undefined) ?? [];
   const ids: string[] = [];

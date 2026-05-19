@@ -21,8 +21,19 @@ export function PreferencesEditor({ value, onChange }: Props) {
   const [customDomain, setCustomDomain] = React.useState("");
   const [newPreferred, setNewPreferred] = React.useState("");
   const [newExcluded, setNewExcluded] = React.useState("");
+  const [newTitlePos, setNewTitlePos] = React.useState("");
+  const [newTitleNeg, setNewTitleNeg] = React.useState("");
 
   const update = (patch: Partial<WizardPreferences>) => onChange({ ...value, ...patch });
+
+  // Helper pour ajouter une entrée à une liste de tags (positifs, négatifs,
+  // villes…). Gère le trim, le doublon et le vide.
+  const addToList = (current: string[], raw: string): string[] => {
+    const trimmed = raw.trim();
+    if (!trimmed) return current;
+    if (current.includes(trimmed)) return current;
+    return [...current, trimmed];
+  };
 
   const toggleContract = (id: string) => {
     update({
@@ -236,6 +247,140 @@ export function PreferencesEditor({ value, onChange }: Props) {
               min={0}
               step={500}
             />
+          </div>
+        </div>
+      </section>
+
+      <Separator />
+
+      <section className="space-y-4">
+        <div>
+          <Label>Mots-clés dans les titres d'annonces</Label>
+          <p className="text-xs text-muted-foreground">
+            <strong>Positifs</strong> (vert) = bonus au scoring quand le titre contient ce mot.
+            <strong className="ml-1">Négatifs</strong> (rouge) = pénalité, voire rejet automatique.
+            Liste l'orthographe exacte que tu vois sur les annonces (féminin/masculin, abréviations).
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {/* Positifs */}
+          <div className="space-y-2 rounded-md border border-emerald-500/30 bg-emerald-500/[0.03] p-3">
+            <Label className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+              ✓ Mots-clés positifs ({value.titlePositive.length})
+            </Label>
+            <div className="flex min-h-[2rem] flex-wrap gap-1.5">
+              {value.titlePositive.length === 0 ? (
+                <span className="text-xs italic text-muted-foreground">
+                  Ex. « chargé clientèle », « gestion patrimoine », « conseiller »…
+                </span>
+              ) : (
+                value.titlePositive.map((kw) => (
+                  <Badge
+                    key={kw}
+                    variant="secondary"
+                    className="gap-1.5 border-emerald-500/40 bg-emerald-500/10 pr-1 text-emerald-800 dark:text-emerald-200"
+                  >
+                    {kw}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        update({ titlePositive: value.titlePositive.filter((x) => x !== kw) })
+                      }
+                      aria-label={`Retirer ${kw}`}
+                      className="rounded-full p-0.5 hover:bg-background/50"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Ajouter un mot-clé positif"
+                value={newTitlePos}
+                onChange={(e) => setNewTitlePos(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    update({ titlePositive: addToList(value.titlePositive, newTitlePos) });
+                    setNewTitlePos("");
+                  }
+                }}
+                className="text-sm"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  update({ titlePositive: addToList(value.titlePositive, newTitlePos) });
+                  setNewTitlePos("");
+                }}
+              >
+                <Plus className="mr-1 h-3 w-3" /> Ajouter
+              </Button>
+            </div>
+          </div>
+
+          {/* Négatifs */}
+          <div className="space-y-2 rounded-md border border-red-500/30 bg-red-500/[0.03] p-3">
+            <Label className="text-xs font-semibold text-red-700 dark:text-red-400">
+              ✗ Mots-clés négatifs ({value.titleNegative.length})
+            </Label>
+            <div className="flex min-h-[2rem] flex-wrap gap-1.5">
+              {value.titleNegative.length === 0 ? (
+                <span className="text-xs italic text-muted-foreground">
+                  Ex. « chasseur », « hunter », « porte-à-porte »…
+                </span>
+              ) : (
+                value.titleNegative.map((kw) => (
+                  <Badge
+                    key={kw}
+                    variant="secondary"
+                    className="gap-1.5 border-red-500/40 bg-red-500/10 pr-1 text-red-800 dark:text-red-200"
+                  >
+                    {kw}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        update({ titleNegative: value.titleNegative.filter((x) => x !== kw) })
+                      }
+                      aria-label={`Retirer ${kw}`}
+                      className="rounded-full p-0.5 hover:bg-background/50"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Ajouter un mot-clé négatif"
+                value={newTitleNeg}
+                onChange={(e) => setNewTitleNeg(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    update({ titleNegative: addToList(value.titleNegative, newTitleNeg) });
+                    setNewTitleNeg("");
+                  }
+                }}
+                className="text-sm"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  update({ titleNegative: addToList(value.titleNegative, newTitleNeg) });
+                  setNewTitleNeg("");
+                }}
+              >
+                <Plus className="mr-1 h-3 w-3" /> Ajouter
+              </Button>
+            </div>
           </div>
         </div>
       </section>

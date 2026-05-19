@@ -80,15 +80,15 @@ export interface PortalsConfig {
  *   - salary_filter.minimum_annual_eur (Préférences > Rémunération)
  *   - contract_types (Préférences > Contrats)
  *   - seniority (Préférences > Niveau d'expérience)
+ *   - title_filter.positive (Préférences > Mots-clés titre, depuis l'éditeur UI)
+ *   - title_filter.negative (Préférences > Mots-clés titre, depuis l'éditeur UI)
  *
  * Champs en union (ajout par UI, pas de suppression depuis UI) :
- *   - title_filter.positive (prefs.domains + customDomains + existing positifs)
  *   - location_filter.allow (baseCity + preferredLocations + remote + existing zones)
  *   - location_filter.block (excludedLocations + existing block)
  *
  * Champs purement préservés (l'UI ne les touche pas) :
- *   - title_filter.negative (faut éditer le yaml à la main, pour l'instant)
- *   - tout autre champ top-level inconnu
+ *   - tout autre champ top-level inconnu (custom_zones, notes_top, etc.)
  */
 export function buildPortalsYaml(
   enabledSourceIds: string[],
@@ -102,13 +102,6 @@ export function buildPortalsYaml(
     enabled: true,
   }));
 
-  const domainLabels = [
-    ...preferences.domains
-      .map((id) => DEFAULT_DOMAINS.find((d) => d.id === id)?.label)
-      .filter(Boolean) as string[],
-    ...preferences.customDomains,
-  ];
-
   const prefAllow: string[] = [];
   if (preferences.remoteOk) prefAllow.push("Télétravail", "Remote");
   if (preferences.baseCity) prefAllow.push(preferences.baseCity);
@@ -116,10 +109,7 @@ export function buildPortalsYaml(
 
   const uniq = (arr: string[]) => Array.from(new Set(arr.filter((x) => x && x.length > 0)));
 
-  const existingTitle = (existing.title_filter ?? {}) as Record<string, unknown>;
   const existingLocation = (existing.location_filter ?? {}) as Record<string, unknown>;
-  const existingPositive = (existingTitle.positive as string[] | undefined) ?? [];
-  const existingNegative = (existingTitle.negative as string[] | undefined) ?? [];
   const existingAllow = (existingLocation.allow as string[] | undefined) ?? [];
   const existingBlock = (existingLocation.block as string[] | undefined) ?? [];
 
@@ -127,9 +117,12 @@ export function buildPortalsYaml(
     // Préserve tout ce que l'UI ne connaît pas (custom_zones, notes_top, etc.).
     ...existing,
     tracked_companies: tracked,
+    // title_filter : UI fait autorité maintenant qu'on a un éditeur dédié.
+    // L'UI lit les valeurs au mount via extractTitleFiltersFromPortals donc
+    // les listes en mémoire reflètent toujours le fichier — on peut écraser.
     title_filter: {
-      positive: uniq([...domainLabels, ...existingPositive]),
-      negative: existingNegative,
+      positive: uniq(preferences.titlePositive),
+      negative: uniq(preferences.titleNegative),
     },
     location_filter: {
       allow: uniq([...prefAllow, ...existingAllow]),

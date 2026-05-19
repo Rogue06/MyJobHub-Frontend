@@ -3,7 +3,7 @@ import path from "node:path";
 import yaml from "yaml";
 import { Workspace } from "@/types/workspace";
 import { getCareerOpsPath } from "@/lib/workspace";
-import { WizardPreferences, DEFAULT_PREFERENCES, DEFAULT_DOMAINS, CONTRACT_TYPES } from "@/lib/preferences";
+import { WizardPreferences, DEFAULT_PREFERENCES, DEFAULT_DOMAINS, CONTRACT_TYPES, SeniorityId } from "@/lib/preferences";
 import { DEFAULT_SOURCES } from "@/lib/sources";
 
 export interface WorkspaceProfile {
@@ -46,6 +46,20 @@ export async function writeCvMd(workspace: Workspace, content: string): Promise<
   await fs.writeFile(filePath, content, "utf-8");
 }
 
+/** Accepte les formats historiques (string) ou nouveaux (array) et renvoie
+ *  toujours un array. Permet la rétrocompat des profile.yml qui contiennent
+ *  encore `seniority: confirme` au lieu de `seniority: [confirme]`. */
+function normalizeSeniority(raw: unknown): SeniorityId[] {
+  const allowed: SeniorityId[] = ["junior", "confirme", "senior"];
+  if (Array.isArray(raw)) {
+    return raw.filter((x): x is SeniorityId => allowed.includes(x as SeniorityId));
+  }
+  if (typeof raw === "string" && allowed.includes(raw as SeniorityId)) {
+    return [raw as SeniorityId];
+  }
+  return DEFAULT_PREFERENCES.seniority;
+}
+
 export function extractPreferencesFromProfile(profile: Record<string, unknown>): WizardPreferences {
   const tr = (profile.target_roles ?? {}) as Record<string, unknown>;
   const comp = (profile.compensation ?? {}) as Record<string, unknown>;
@@ -70,7 +84,7 @@ export function extractPreferencesFromProfile(profile: Record<string, unknown>):
     contractTypes: contractTypes.length > 0 ? contractTypes : DEFAULT_PREFERENCES.contractTypes,
     domains,
     customDomains,
-    seniority: (tr.seniority as WizardPreferences["seniority"]) ?? DEFAULT_PREFERENCES.seniority,
+    seniority: normalizeSeniority(tr.seniority),
     salaryMin: Number(comp.minimum_annual ?? DEFAULT_PREFERENCES.salaryMin),
     salaryTarget: Number(comp.target_annual ?? DEFAULT_PREFERENCES.salaryTarget),
     baseCity: String(loc.city ?? ""),

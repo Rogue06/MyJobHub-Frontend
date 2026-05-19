@@ -27,12 +27,17 @@ export function buildProfileYaml(
     ...preferences.customDomains,
   ];
 
+  // Préserve aussi les domaines existants du target_roles (fusion union).
+  const existingTr = (baseProfile.target_roles as Record<string, unknown> | undefined) ?? {};
+  const existingDomains = (existingTr.domains as string[] | undefined) ?? [];
+  const mergedDomains = Array.from(new Set([...domainLabels, ...existingDomains].filter(Boolean)));
+
   const merged: ProfileFromWizard = {
     ...baseProfile,
     target_roles: {
-      ...(baseProfile.target_roles as Record<string, unknown> | undefined),
+      ...existingTr,
       contract_types: contractLabels,
-      domains: domainLabels,
+      domains: mergedDomains,
       seniority: preferences.seniority,
     },
     compensation: {
@@ -64,9 +69,31 @@ export interface PortalsConfig {
   salaryMinAnnual?: number;
 }
 
+/**
+ * Construit portals.yml en MERGE-mode : préserve les champs custom que l'UI
+ * ne contrôle pas encore (title_filter.negative, zones ajoutées à la main…)
+ * et fait l'union avec ce que les préférences UI imposent. Sinon, chaque
+ * « Enregistrer » écrasait les 39 zones et les filtres titre ajoutés au yaml.
+ *
+ * Champs sous contrôle UI total (écrasés par les prefs) :
+ *   - tracked_companies (Sources tab)
+ *   - salary_filter.minimum_annual_eur (Préférences > Rémunération)
+ *   - contract_types (Préférences > Contrats)
+ *   - seniority (Préférences > Niveau d'expérience)
+ *
+ * Champs en union (ajout par UI, pas de suppression depuis UI) :
+ *   - title_filter.positive (prefs.domains + customDomains + existing positifs)
+ *   - location_filter.allow (baseCity + preferredLocations + remote + existing zones)
+ *   - location_filter.block (excludedLocations + existing block)
+ *
+ * Champs purement préservés (l'UI ne les touche pas) :
+ *   - title_filter.negative (faut éditer le yaml à la main, pour l'instant)
+ *   - tout autre champ top-level inconnu
+ */
 export function buildPortalsYaml(
   enabledSourceIds: string[],
-  preferences: WizardPreferences
+  preferences: WizardPreferences,
+  existing: Record<string, unknown> = {}
 ): string {
   const enabled = DEFAULT_SOURCES.filter((s) => enabledSourceIds.includes(s.id));
   const tracked = enabled.map((s) => ({
@@ -75,31 +102,38 @@ export function buildPortalsYaml(
     enabled: true,
   }));
 
-  const titlePositive = [
+  const domainLabels = [
     ...preferences.domains
       .map((id) => DEFAULT_DOMAINS.find((d) => d.id === id)?.label)
       .filter(Boolean) as string[],
     ...preferences.customDomains,
   ];
 
-  const locationAllow: string[] = [];
-  if (preferences.remoteOk) {
-    locationAllow.push("Télétravail", "Remote");
-  }
-  if (preferences.baseCity) {
-    locationAllow.push(preferences.baseCity);
-  }
-  locationAllow.push(...preferences.preferredLocations);
+  const prefAllow: string[] = [];
+  if (preferences.remoteOk) prefAllow.push("Télétravail", "Remote");
+  if (preferences.baseCity) prefAllow.push(preferences.baseCity);
+  prefAllow.push(...preferences.preferredLocations);
 
-  const data = {
+  const uniq = (arr: string[]) => Array.from(new Set(arr.filter((x) => x && x.length > 0)));
+
+  const existingTitle = (existing.title_filter ?? {}) as Record<string, unknown>;
+  const existingLocation = (existing.location_filter ?? {}) as Record<string, unknown>;
+  const existingPositive = (existingTitle.positive as string[] | undefined) ?? [];
+  const existingNegative = (existingTitle.negative as string[] | undefined) ?? [];
+  const existingAllow = (existingLocation.allow as string[] | undefined) ?? [];
+  const existingBlock = (existingLocation.block as string[] | undefined) ?? [];
+
+  const data: Record<string, unknown> = {
+    // Préserve tout ce que l'UI ne connaît pas (custom_zones, notes_top, etc.).
+    ...existing,
     tracked_companies: tracked,
     title_filter: {
-      positive: titlePositive,
-      negative: [],
+      positive: uniq([...domainLabels, ...existingPositive]),
+      negative: existingNegative,
     },
     location_filter: {
-      allow: locationAllow,
-      block: preferences.excludedLocations,
+      allow: uniq([...prefAllow, ...existingAllow]),
+      block: uniq([...preferences.excludedLocations, ...existingBlock]),
     },
     salary_filter: {
       minimum_annual_eur: preferences.salaryMin,

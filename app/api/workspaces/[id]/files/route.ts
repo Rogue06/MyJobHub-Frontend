@@ -106,7 +106,10 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       const current = await readPortalsYml(ws).catch(() => ({ parsed: {} as Record<string, unknown> }));
       const enabled = body.enabledSources ?? extractSourcesFromPortals(current.parsed);
       const prefs = body.preferences ?? extractPreferencesFromProfileFallback(ws);
-      const portalsYaml = buildPortalsYaml(enabled, await prefs);
+      // Passe le portals.yml courant comme base de merge : préserve les champs
+      // custom (title_filter.negative, zones ajoutées à la main…) au lieu de
+      // tout écraser à chaque clic sur « Enregistrer ».
+      const portalsYaml = buildPortalsYaml(enabled, await prefs, current.parsed);
       const yamlModule = await import("yaml");
       const parsed = (yamlModule.default.parse(portalsYaml) ?? {}) as Record<string, unknown>;
       await writePortalsYml(ws, parsed);

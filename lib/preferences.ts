@@ -49,11 +49,16 @@ export const SENIORITY_LEVELS: SeniorityOption[] = [
   { id: "senior", label: "Senior", description: "Expert ou poste à responsabilités" },
 ];
 
+export type SeniorityId = "junior" | "confirme" | "senior";
+
 export interface WizardPreferences {
   contractTypes: string[];
   domains: string[];
   customDomains: string[];
-  seniority: "junior" | "confirme" | "senior";
+  /** Multi-sélection : permet ex. [junior, confirme] pour viser à la fois
+   *  les offres « débutant » ET « confirmé » (utile pour Mickaël qui sort
+   *  d'un break carrière). */
+  seniority: SeniorityId[];
   salaryMin: number;
   salaryTarget: number;
   baseCity: string;
@@ -67,7 +72,7 @@ export const DEFAULT_PREFERENCES: WizardPreferences = {
   contractTypes: ["cdi"],
   domains: [],
   customDomains: [],
-  seniority: "confirme",
+  seniority: ["confirme"],
   salaryMin: 25000,
   salaryTarget: 35000,
   baseCity: "",

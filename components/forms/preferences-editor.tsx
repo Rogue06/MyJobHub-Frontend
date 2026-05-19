@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { CONTRACT_TYPES, DEFAULT_DOMAINS, SENIORITY_LEVELS, WizardPreferences } from "@/lib/preferences";
+import { CONTRACT_TYPES, DEFAULT_DOMAINS, SENIORITY_LEVELS, SeniorityId, WizardPreferences } from "@/lib/preferences";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -72,15 +72,29 @@ export function PreferencesEditor({ value, onChange }: Props) {
       <Separator />
 
       <section className="space-y-3">
-        <Label>Niveau d'expérience</Label>
+        <div>
+          <Label>Niveau d'expérience</Label>
+          <p className="text-xs text-muted-foreground">
+            Multi-sélection : tu peux cocher plusieurs niveaux pour viser
+            simultanément (ex. débutant + confirmé après une transition).
+          </p>
+        </div>
         <div className="flex flex-wrap gap-2">
           {SENIORITY_LEVELS.map((s) => {
-            const selected = value.seniority === s.id;
+            const selected = value.seniority.includes(s.id);
+            const toggle = () => {
+              const next: SeniorityId[] = selected
+                ? value.seniority.filter((x) => x !== s.id)
+                : [...value.seniority, s.id];
+              // Au moins un niveau doit rester sélectionné, sinon on ne sait
+              // plus ce que cherche l'utilisateur.
+              update({ seniority: next.length === 0 ? [s.id] : next });
+            };
             return (
               <button
                 key={s.id}
                 type="button"
-                onClick={() => update({ seniority: s.id })}
+                onClick={toggle}
                 className={cn(
                   "flex flex-col items-start gap-0.5 rounded-md border px-4 py-2 text-left transition-colors",
                   selected ? "border-primary bg-primary/5" : "border-border bg-background hover:bg-accent"
